@@ -11,7 +11,16 @@ import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineB
 
 // 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
 const MAX_SHIFT = 11;
-type SongPrefs = { semis?: number; flats?: boolean; bpm?: number; simple?: boolean };
+type SongPrefs = { semis?: number; flats?: boolean; bpm?: number; simple?: boolean; capo?: number };
+const MAX_CAPO = 9;
+
+// 오픈 운지가 없는 코드(바레·하이 포지션) 개수
+function hardCount(chords: string[]) {
+  return chords.filter((c) => {
+    const r = resolveChord(c);
+    return r && r.voicing.position !== '오픈';
+  }).length;
+}
 // 악보 글자 크기 (보면대 거리에 맞게 고른다)
 const TEXT_SIZES = [14, 16, 19, 23];
 
@@ -50,11 +59,27 @@ export function SongView({
   useWakeLock(scrolling || playing);
 
   const lines = useMemo(() => parseBody(song.body), [song.body]);
-  const tx = (c: string) => transposeText(simple ? simplifyChord(c) : c, semis, flats);
+  // 카포를 바꾸면 소리는 그대로 두고 운지 모양만 옮긴다 (소리 = 모양 + 카포)
+  const songCapo = song.capo ?? 0;
+  const capo = prefs.capo ?? songCapo;
+  const shapeShift = (c: number) => semis + songCapo - c;
+  const shapesAt = (c: number) =>
+    [...new Set(songChords(lines).map((ch) => transposeText(simple ? simplifyChord(ch) : ch, shapeShift(c), flats)))];
+  const tx = (c: string) => transposeText(simple ? simplifyChord(c) : c, shapeShift(capo), flats);
   // 쉬운 코드로 바꾸면 Cmaj7·C처럼 같은 코드가 겹칠 수 있다
-  const chords = [...new Set(songChords(lines).map(tx))];
+  const chords = shapesAt(capo);
+  const hardNow = hardCount(chords);
+  // 바레 코드가 가장 적은 카포 위치 (같으면 낮은 쪽)
+  const bestCapo = useMemo(() => {
+    let best = capo;
+    let min = hardNow;
+    for (let c = 0; c <= 7; c++) {
+      const n = hardCount(shapesAt(c));
+      if (n < min) [best, min] = [c, n];
+    }
+    return { capo: best, hard: min };
+  }, [lines, semis, songCapo, simple, capo]);
 
-  const capo = song.capo ?? 0;
   const time = song.time ?? '4/4';
   const fullTimeline = useMemo(() => buildTimeline(lines), [lines]);
   const playable = hasPlayable(fullTimeline);
@@ -211,7 +236,7 @@ export function SongView({
         <p className="text-muted">{song.artist}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {keyLabel && <Chip size="sm" color="accent" variant="soft">키 {keyLabel}</Chip>}
-          {song.capo ? <Chip size="sm">카포 {song.capo}</Chip> : null}
+          {capo ? <Chip size="sm">카포 {capo}</Chip> : null}
           {song.bpm ? <Chip size="sm">♩ {song.bpm}</Chip> : null}
           {time !== '4/4' && <Chip size="sm">{time}</Chip>}
           {song.strum && <Chip size="sm">{song.strum}</Chip>}
@@ -272,13 +297,47 @@ export function SongView({
           >
             쉬운 코드
           </button>
-          {(semis !== 0 || prefs.bpm != null || simple) && (
+          {(semis !== 0 || prefs.bpm != null || simple || prefs.capo != null) && (
             <button
               type="button"
               onClick={() => setPrefs({})}
               className="rounded-lg px-2 py-1 text-xs font-bold whitespace-nowrap text-accent hover:bg-accent/15"
             >
               원래대로
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold whitespace-nowrap text-muted">카포</span>
+          <Button
+            size="sm"
+            variant="tertiary"
+            isIconOnly
+            aria-label="카포 내리기"
+            isDisabled={capo <= 0}
+            onPress={() => setPref('capo', capo - 1)}
+          >
+            <Minus className="size-4" />
+          </Button>
+          <span className="w-8 text-center font-bold tabular-nums">{capo}</span>
+          <Button
+            size="sm"
+            variant="tertiary"
+            isIconOnly
+            aria-label="카포 올리기"
+            isDisabled={capo >= MAX_CAPO}
+            onPress={() => setPref('capo', capo + 1)}
+          >
+            <Plus className="size-4" />
+          </Button>
+          {bestCapo.capo !== capo && (
+            <button
+              type="button"
+              onClick={() => setPref('capo', bestCapo.capo)}
+              className="rounded-lg bg-accent/15 px-2 py-1 text-xs font-bold whitespace-nowrap text-accent hover:bg-accent/25"
+            >
+              카포 {bestCapo.capo}이면 바레 {hardNow}→{bestCapo.hard}개
             </button>
           )}
         </div>
