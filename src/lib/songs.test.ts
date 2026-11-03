@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { importText, parseBody } from './songs';
+import { importText, parseBody, simplifyChord } from './songs';
 import { buildTimeline, METERS, slotAt, stepSeconds } from './timeline';
 
 describe('타임라인', () => {
@@ -71,5 +71,13 @@ describe('붙여넣기 변환', () => {
     const r = importText('C6/9  G/B\nsome words here');
     expect(r.body).toContain('[C6/9]');
     expect(r.body).toContain('[G/B]');
+  });
+});
+
+describe('쉬운 코드', () => {
+  it('기본 3화음만 남긴다', () => {
+    expect(['Cmaj7', 'Am7', 'G/B', 'Dsus4', 'E7', 'F#m7b5', 'Bbadd9', 'Bdim7', 'Em', 'N.C.'].map(simplifyChord)).toEqual([
+      'C', 'Am', 'G', 'D', 'E', 'F#m', 'Bb', 'Bdim', 'Em', 'N.C.',
+    ]);
   });
 });

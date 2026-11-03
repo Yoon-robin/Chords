@@ -3,7 +3,7 @@ import { Button, Chip, Slider, Label } from '@heroui/react';
 import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
-import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
+import { parseBody, simplifyChord, songChords, transposeText, type Line, type Song } from '../../lib/songs';
 import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
 import { useWakeLock } from '../../lib/useWakeLock';
@@ -11,7 +11,7 @@ import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineB
 
 // 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
 const MAX_SHIFT = 11;
-type SongPrefs = { semis?: number; flats?: boolean; bpm?: number };
+type SongPrefs = { semis?: number; flats?: boolean; bpm?: number; simple?: boolean };
 // 악보 글자 크기 (보면대 거리에 맞게 고른다)
 const TEXT_SIZES = [14, 16, 19, 23];
 
@@ -36,6 +36,7 @@ export function SongView({
   const [prefs, setPrefs] = usePersistent<SongPrefs>(`song.prefs.${song.id}`, {});
   const semis = prefs.semis ?? 0;
   const flats = prefs.flats ?? false;
+  const simple = prefs.simple ?? false;
   const bpm = prefs.bpm ?? song.bpm ?? 80;
   const setPref = <K extends keyof SongPrefs>(k: K, v: SongPrefs[K]) => setPrefs((p) => ({ ...p, [k]: v }));
   const [scrolling, setScrolling] = useState(false);
@@ -49,8 +50,9 @@ export function SongView({
   useWakeLock(scrolling || playing);
 
   const lines = useMemo(() => parseBody(song.body), [song.body]);
-  const tx = (c: string) => transposeText(c, semis, flats);
-  const chords = songChords(lines).map(tx);
+  const tx = (c: string) => transposeText(simple ? simplifyChord(c) : c, semis, flats);
+  // 쉬운 코드로 바꾸면 Cmaj7·C처럼 같은 코드가 겹칠 수 있다
+  const chords = [...new Set(songChords(lines).map(tx))];
 
   const capo = song.capo ?? 0;
   const time = song.time ?? '4/4';
@@ -101,14 +103,14 @@ export function SongView({
   }, [scrolling, speed]);
 
   // 반주 재생: 박자표에 맞는 스트럼 패턴, 쉬는 마디(N.C.)는 소리 없이 지나간다
-  const state = useRef({ bpm, timeline, semis, flats, capo, time });
-  state.current = { bpm, timeline, semis, flats, capo, time };
+  const state = useRef({ bpm, timeline, capo, time, tx });
+  state.current = { bpm, timeline, capo, time, tx };
   const loop = useMemo(
     () =>
       createLoop(
         () => stepSeconds(state.current.bpm, state.current.time),
         (step, when, at) => {
-          const { timeline: tl, semis: s, flats: f, capo: cp, time: ts } = state.current;
+          const { timeline: tl, capo: cp, time: ts, tx: t } = state.current;
           if (!tl.length) return;
           const meter = METERS[ts];
           if (step < meter.steps) {
@@ -131,7 +133,7 @@ export function SongView({
             if (slotStart) damp(when);
             return;
           }
-          const r = resolveChord(transposeText(chord, s, f));
+          const r = resolveChord(t(chord));
           if (!r) return;
           // 코드가 바뀌는 칸은 패턴과 상관없이 다운으로 시작
           const p = slotStart ? 'D' : meter.pattern[e];
@@ -260,7 +262,17 @@ export function SongView({
           >
             {flats ? '♭ 표기' : '♯ 표기'}
           </button>
-          {(semis !== 0 || prefs.bpm != null) && (
+          <button
+            type="button"
+            aria-pressed={simple}
+            onClick={() => setPref('simple', !simple)}
+            className={`rounded-lg px-2 py-1 text-xs font-bold whitespace-nowrap transition ${
+              simple ? 'bg-accent text-accent-foreground' : 'bg-surface-secondary text-muted hover:text-foreground'
+            }`}
+          >
+            쉬운 코드
+          </button>
+          {(semis !== 0 || prefs.bpm != null || simple) && (
             <button
               type="button"
               onClick={() => setPrefs({})}

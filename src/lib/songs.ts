@@ -110,6 +110,13 @@ export function transposeText(chord: string, semis: number, flats: boolean) {
   return c ? transposeChord(c, semis, flats) : chord;
 }
 
+// 쉬운 코드: 텐션·7th·sus·베이스음을 빼고 기본 3화음으로 (Cmaj7 → C, Am7 → Am, G/B → G)
+const SIMPLE: Record<string, string> = { m: 'm', m7: 'm', m6: 'm', m7b5: 'm', dim: 'dim', dim7: 'dim' };
+export function simplifyChord(chord: string) {
+  const c = parseSongChord(chord);
+  return c ? c.rootName + (SIMPLE[c.qid] ?? '') : chord;
+}
+
 // ---------- 붙여넣기: "가사 위에 코드" 형식을 송북 형식으로 변환
 
 const SECTION_WORDS =
