@@ -35,6 +35,14 @@ const PRESETS: Record<Mode, { name: string; prog: number[] }[]> = {
 
 type Running = null | 'metro' | 'prog';
 
+// 카드가 길어서 위에서 바로 건너갈 수 있게
+const SECTIONS = [
+  { id: 'p-metro', label: '메트로놈' },
+  { id: 'p-prog', label: '코드 진행' },
+  { id: 'p-change', label: '코드 체인지' },
+  { id: 'p-quiz', label: '퀴즈' },
+];
+
 // 템포 점점 올리기: every마디마다 step씩, max까지
 type Ramp = { on: boolean; step: number; every: number; max: number };
 const RAMP_STEPS = [2, 5, 10];
@@ -147,316 +155,345 @@ export function Practice() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* 메트로놈 */}
-      <Card>
-        <Card.Header>
-          <Card.Title>메트로놈</Card.Title>
-        </Card.Header>
-        <Card.Content className="flex flex-col items-center gap-5">
-          <div className="flex items-center gap-4">
-            <Button isIconOnly variant="tertiary" aria-label="느리게" onPress={() => setBpm((b) => Math.max(40, b - 1))}>
-              <Minus className="size-5" />
-            </Button>
-            <div className="w-36 text-center">
-              <div className="text-6xl font-black tracking-tighter tabular-nums">{bpm}</div>
-              <div className="text-sm text-muted">BPM</div>
-            </div>
-            <Button isIconOnly variant="tertiary" aria-label="빠르게" onPress={() => setBpm((b) => Math.min(220, b + 1))}>
-              <Plus className="size-5" />
-            </Button>
-          </div>
-
-          <Slider value={bpm} onChange={(v) => setBpm(v as number)} minValue={40} maxValue={220} className="w-full max-w-md" aria-label="템포">
-            <Slider.Track>
-              <Slider.Fill />
-              <Slider.Thumb />
-            </Slider.Track>
-          </Slider>
-
-          <div className="flex gap-3">
-            {Array.from({ length: beatCount }, (_, i) => (
-              <span
-                key={i}
-                className={`size-5 rounded-full transition duration-75 ${
-                  running && beat === i ? (i === 0 ? 'scale-125 bg-accent' : 'scale-110 bg-foreground') : 'bg-surface-tertiary'
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <ToggleButtonGroup
-              selectionMode="single"
-              disallowEmptySelection
-              selectedKeys={[String(beats)]}
-              onSelectionChange={(k) => setBeats(Number([...k][0]))}
-              size="sm"
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight">연습</h1>
+        <nav aria-label="연습 도구" className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4">
+          {SECTIONS.map((sec) => (
+            <a
+              key={sec.id}
+              href={`#${sec.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="shrink-0 rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-semibold text-muted transition hover:border-accent hover:text-foreground"
             >
-              {[2, 3, 4, 6].map((n, i) => (
-                <ToggleButton key={n} id={String(n)}>
-                  {i > 0 && <ToggleButtonGroup.Separator />}
-                  {n}/4
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            <Button variant="secondary" size="sm" onPress={tap}>
-              <Hand className="size-4" />탭 템포
-            </Button>
-            <Button onPress={() => toggle('metro')} variant={running === 'metro' ? 'secondary' : 'primary'}>
-              {running === 'metro' ? <Pause className="size-4" /> : <Play className="size-4" />}
-              {running === 'metro' ? '정지' : '시작'}
-            </Button>
-          </div>
+              {sec.label}
+            </a>
+          ))}
+        </nav>
+      </div>
 
-          <div className="flex w-full max-w-md flex-col gap-3 rounded-xl bg-surface-secondary p-3">
-            <Switch isSelected={ramp.on} onChange={(on) => setRampPart({ on })} size="sm">
+      {/* 메트로놈 */}
+      <section id="p-metro" className="scroll-mt-20">
+        <Card>
+          <Card.Header>
+            <Card.Title>메트로놈</Card.Title>
+          </Card.Header>
+          <Card.Content className="flex flex-col items-center gap-5">
+            <div className="flex items-center gap-4">
+              <Button isIconOnly variant="tertiary" aria-label="느리게" onPress={() => setBpm((b) => Math.max(40, b - 1))}>
+                <Minus className="size-5" />
+              </Button>
+              <div className="w-36 text-center">
+                <div className="text-6xl font-black tracking-tighter tabular-nums">{bpm}</div>
+                <div className="text-sm text-muted">BPM</div>
+              </div>
+              <Button isIconOnly variant="tertiary" aria-label="빠르게" onPress={() => setBpm((b) => Math.min(220, b + 1))}>
+                <Plus className="size-5" />
+              </Button>
+            </div>
+
+            <Slider value={bpm} onChange={(v) => setBpm(v as number)} minValue={40} maxValue={220} className="w-full max-w-md" aria-label="템포">
+              <Slider.Track>
+                <Slider.Fill />
+                <Slider.Thumb />
+              </Slider.Track>
+            </Slider>
+
+            <div className="flex gap-3">
+              {Array.from({ length: beatCount }, (_, i) => (
+                <span
+                  key={i}
+                  className={`size-5 rounded-full transition duration-75 ${
+                    running && beat === i ? (i === 0 ? 'scale-125 bg-accent' : 'scale-110 bg-foreground') : 'bg-surface-tertiary'
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <ToggleButtonGroup
+                selectionMode="single"
+                disallowEmptySelection
+                selectedKeys={[String(beats)]}
+                onSelectionChange={(k) => setBeats(Number([...k][0]))}
+                size="sm"
+              >
+                {[2, 3, 4, 6].map((n, i) => (
+                  <ToggleButton key={n} id={String(n)}>
+                    {i > 0 && <ToggleButtonGroup.Separator />}
+                    {n}/4
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <Button variant="secondary" size="sm" onPress={tap}>
+                <Hand className="size-4" />탭 템포
+              </Button>
+              <Button onPress={() => toggle('metro')} variant={running === 'metro' ? 'secondary' : 'primary'}>
+                {running === 'metro' ? <Pause className="size-4" /> : <Play className="size-4" />}
+                {running === 'metro' ? '정지' : '시작'}
+              </Button>
+            </div>
+
+            <div className="flex w-full max-w-md flex-col gap-3 rounded-xl bg-surface-secondary p-3">
+              <Switch isSelected={ramp.on} onChange={(on) => setRampPart({ on })} size="sm">
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+                <Switch.Content>
+                  <Label className="flex items-center gap-1.5">
+                    <TrendingUp className="size-4" />
+                    점점 빠르게
+                  </Label>
+                </Switch.Content>
+              </Switch>
+              {ramp.on && (
+                <div className="flex flex-col gap-2.5 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ToggleButtonGroup
+                      selectionMode="single"
+                      disallowEmptySelection
+                      selectedKeys={[String(ramp.every)]}
+                      onSelectionChange={(k) => setRampPart({ every: Number([...k][0]) })}
+                      size="sm"
+                      aria-label="몇 마디마다"
+                    >
+                      {RAMP_EVERY.map((n, i) => (
+                        <ToggleButton key={n} id={String(n)}>
+                          {i > 0 && <ToggleButtonGroup.Separator />}
+                          {n}마디
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <span className="whitespace-nowrap text-muted">마다</span>
+                    <ToggleButtonGroup
+                      selectionMode="single"
+                      disallowEmptySelection
+                      selectedKeys={[String(ramp.step)]}
+                      onSelectionChange={(k) => setRampPart({ step: Number([...k][0]) })}
+                      size="sm"
+                      aria-label="올릴 BPM"
+                    >
+                      {RAMP_STEPS.map((n, i) => (
+                        <ToggleButton key={n} id={String(n)}>
+                          {i > 0 && <ToggleButtonGroup.Separator />}+{n}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="whitespace-nowrap text-muted">최대</span>
+                    <span className="flex items-center gap-1">
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="tertiary"
+                        aria-label="최대 템포 낮추기"
+                        onPress={() => setRampPart({ max: Math.max(40, ramp.max - 5) })}
+                      >
+                        <Minus className="size-4" />
+                      </Button>
+                      <span className="w-16 text-center font-bold tabular-nums">♩ {ramp.max}</span>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="tertiary"
+                        aria-label="최대 템포 높이기"
+                        onPress={() => setRampPart({ max: Math.min(220, ramp.max + 5) })}
+                      >
+                        <Plus className="size-4" />
+                      </Button>
+                    </span>
+                    {bpm >= ramp.max && <span className="text-xs font-semibold whitespace-nowrap text-accent">목표 도달</span>}
+                  </div>
+                  <p className="text-xs text-muted">메트로놈과 코드 진행 반주 모두에 적용돼요.</p>
+                </div>
+              )}
+            </div>
+          </Card.Content>
+        </Card>
+
+      </section>
+
+      {/* 코드 진행 */}
+      <section id="p-prog" className="scroll-mt-20">
+        <Card>
+          <Card.Header>
+            <Card.Title>코드 진행 연습</Card.Title>
+            <Card.Description>키를 고르고 진행을 만들어 반주처럼 들어 보세요</Card.Description>
+          </Card.Header>
+          <Card.Content className="flex flex-col gap-4">
+            <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
+              {keys.map((n, pc) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setKeyPc(pc)}
+                  className={`rounded-xl border px-2 py-1.5 text-sm font-semibold transition ${
+                    pc === keyPc ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-surface hover:border-accent'
+                  }`}
+                >
+                  {pretty(n)}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <ToggleButtonGroup
+                selectionMode="single"
+                disallowEmptySelection
+                selectedKeys={[mode]}
+                onSelectionChange={(k) => {
+                  const m = [...k][0] as Mode;
+                  setMode(m);
+                  setProg([...PRESETS[m][0].prog]);
+                }}
+                size="sm"
+              >
+                <ToggleButton id="major">메이저</ToggleButton>
+                <ToggleButton id="minor">
+                  <ToggleButtonGroup.Separator />
+                  마이너
+                </ToggleButton>
+              </ToggleButtonGroup>
+              <ToggleButtonGroup
+                selectionMode="single"
+                disallowEmptySelection
+                selectedKeys={[sevenths ? '7' : '3']}
+                onSelectionChange={(k) => setSevenths([...k][0] === '7')}
+                size="sm"
+              >
+                <ToggleButton id="3">3화음</ToggleButton>
+                <ToggleButton id="7">
+                  <ToggleButtonGroup.Separator />
+                  7화음
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-muted">
+                {pretty(keys[keyPc])} {mode === 'major' ? '메이저' : '마이너'} 다이아토닉 코드 · 누르면 소리, ＋로 진행에 추가
+              </p>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                {chords.map((c) => (
+                  <div key={c.degree} className="relative">
+                    <MiniChord name={c.name.replace('♭', 'b').replace('♯', '#')} sub={c.roman} className="w-full" />
+                    <button
+                      type="button"
+                      aria-label={`${c.name} 진행에 추가`}
+                      onClick={() => setProg((p) => [...p, c.degree])}
+                      className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-accent text-accent-foreground shadow"
+                    >
+                      <Plus className="size-3.5" strokeWidth={3} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <Select
+                value={presetIdx >= 0 ? String(presetIdx) : 'custom'}
+                onChange={(k) => k != null && k !== 'custom' && setProg([...PRESETS[mode][Number(k)].prog])}
+                fullWidth
+              >
+                <Label>진행</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {PRESETS[mode].map((p, i) => (
+                      <ListBox.Item key={p.name} id={String(i)} textValue={p.name}>
+                        {p.name}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                    <ListBox.Item id="custom" textValue="직접 만들기">
+                      직접 만들기
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <Select value={pattern} onChange={(k) => k && setPattern(String(k))} fullWidth>
+                <Label>리듬</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {PATTERNS.map((p) => (
+                      <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
+                        {p.name}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <Button
+                onPress={() => toggle('prog')}
+                isDisabled={!prog.length}
+                variant={running === 'prog' ? 'secondary' : 'primary'}
+              >
+                {running === 'prog' ? <Pause className="size-4" /> : <Play className="size-4" />}
+                {running === 'prog' ? '정지' : `재생 ♩${bpm}`}
+              </Button>
+            </div>
+
+            <Switch isSelected={withClick} onChange={setWithClick} size="sm">
               <Switch.Control>
                 <Switch.Thumb />
               </Switch.Control>
               <Switch.Content>
-                <Label className="flex items-center gap-1.5">
-                  <TrendingUp className="size-4" />
-                  점점 빠르게
-                </Label>
+                <Label>메트로놈 소리 같이 듣기</Label>
               </Switch.Content>
             </Switch>
-            {ramp.on && (
-              <div className="flex flex-col gap-2.5 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ToggleButtonGroup
-                    selectionMode="single"
-                    disallowEmptySelection
-                    selectedKeys={[String(ramp.every)]}
-                    onSelectionChange={(k) => setRampPart({ every: Number([...k][0]) })}
-                    size="sm"
-                    aria-label="몇 마디마다"
-                  >
-                    {RAMP_EVERY.map((n, i) => (
-                      <ToggleButton key={n} id={String(n)}>
-                        {i > 0 && <ToggleButtonGroup.Separator />}
-                        {n}마디
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
-                  <span className="whitespace-nowrap text-muted">마다</span>
-                  <ToggleButtonGroup
-                    selectionMode="single"
-                    disallowEmptySelection
-                    selectedKeys={[String(ramp.step)]}
-                    onSelectionChange={(k) => setRampPart({ step: Number([...k][0]) })}
-                    size="sm"
-                    aria-label="올릴 BPM"
-                  >
-                    {RAMP_STEPS.map((n, i) => (
-                      <ToggleButton key={n} id={String(n)}>
-                        {i > 0 && <ToggleButtonGroup.Separator />}+{n}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="whitespace-nowrap text-muted">최대</span>
-                  <span className="flex items-center gap-1">
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="tertiary"
-                      aria-label="최대 템포 낮추기"
-                      onPress={() => setRampPart({ max: Math.max(40, ramp.max - 5) })}
-                    >
-                      <Minus className="size-4" />
-                    </Button>
-                    <span className="w-16 text-center font-bold tabular-nums">♩ {ramp.max}</span>
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="tertiary"
-                      aria-label="최대 템포 높이기"
-                      onPress={() => setRampPart({ max: Math.min(220, ramp.max + 5) })}
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  </span>
-                  {bpm >= ramp.max && <span className="text-xs font-semibold whitespace-nowrap text-accent">목표 도달</span>}
-                </div>
-                <p className="text-xs text-muted">메트로놈과 코드 진행 반주 모두에 적용돼요.</p>
+
+            {prog.length ? (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+                {prog.map((deg, i) => {
+                  const c = chords[deg];
+                  return (
+                    <div key={i} className="relative">
+                      <MiniChord
+                        name={c.name.replace('♭', 'b').replace('♯', '#')}
+                        sub={`${i + 1} · ${c.roman}`}
+                        active={running === 'prog' && bar === i}
+                        className="w-full"
+                      />
+                      <button
+                        type="button"
+                        aria-label="삭제"
+                        onClick={() => setProg((p) => p.filter((_, j) => j !== i))}
+                        className="absolute top-1 right-1 grid size-6 place-items-center rounded-full text-muted hover:bg-surface-secondary hover:text-danger"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border py-6 text-center text-sm text-muted">
+                진행이 비어 있어요. 위 코드의 ＋ 버튼으로 추가하세요.
+              </p>
             )}
-          </div>
-        </Card.Content>
-      </Card>
+          </Card.Content>
+        </Card>
 
-      {/* 코드 진행 */}
-      <Card>
-        <Card.Header>
-          <Card.Title>코드 진행 연습</Card.Title>
-          <Card.Description>키를 고르고 진행을 만들어 반주처럼 들어 보세요</Card.Description>
-        </Card.Header>
-        <Card.Content className="flex flex-col gap-4">
-          <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
-            {keys.map((n, pc) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setKeyPc(pc)}
-                className={`rounded-xl border px-2 py-1.5 text-sm font-semibold transition ${
-                  pc === keyPc ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-surface hover:border-accent'
-                }`}
-              >
-                {pretty(n)}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <ToggleButtonGroup
-              selectionMode="single"
-              disallowEmptySelection
-              selectedKeys={[mode]}
-              onSelectionChange={(k) => {
-                const m = [...k][0] as Mode;
-                setMode(m);
-                setProg([...PRESETS[m][0].prog]);
-              }}
-              size="sm"
-            >
-              <ToggleButton id="major">메이저</ToggleButton>
-              <ToggleButton id="minor">
-                <ToggleButtonGroup.Separator />
-                마이너
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <ToggleButtonGroup
-              selectionMode="single"
-              disallowEmptySelection
-              selectedKeys={[sevenths ? '7' : '3']}
-              onSelectionChange={(k) => setSevenths([...k][0] === '7')}
-              size="sm"
-            >
-              <ToggleButton id="3">3화음</ToggleButton>
-              <ToggleButton id="7">
-                <ToggleButtonGroup.Separator />
-                7화음
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </div>
+      </section>
 
-          <div>
-            <p className="mb-2 text-sm font-semibold text-muted">
-              {pretty(keys[keyPc])} {mode === 'major' ? '메이저' : '마이너'} 다이아토닉 코드 · 누르면 소리, ＋로 진행에 추가
-            </p>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-              {chords.map((c) => (
-                <div key={c.degree} className="relative">
-                  <MiniChord name={c.name.replace('♭', 'b').replace('♯', '#')} sub={c.roman} className="w-full" />
-                  <button
-                    type="button"
-                    aria-label={`${c.name} 진행에 추가`}
-                    onClick={() => setProg((p) => [...p, c.degree])}
-                    className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-accent text-accent-foreground shadow"
-                  >
-                    <Plus className="size-3.5" strokeWidth={3} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Select
-              value={presetIdx >= 0 ? String(presetIdx) : 'custom'}
-              onChange={(k) => k != null && k !== 'custom' && setProg([...PRESETS[mode][Number(k)].prog])}
-              fullWidth
-            >
-              <Label>진행</Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {PRESETS[mode].map((p, i) => (
-                    <ListBox.Item key={p.name} id={String(i)} textValue={p.name}>
-                      {p.name}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                  <ListBox.Item id="custom" textValue="직접 만들기">
-                    직접 만들기
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <Select value={pattern} onChange={(k) => k && setPattern(String(k))} fullWidth>
-              <Label>리듬</Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {PATTERNS.map((p) => (
-                    <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                      {p.name}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <Button
-              onPress={() => toggle('prog')}
-              isDisabled={!prog.length}
-              variant={running === 'prog' ? 'secondary' : 'primary'}
-            >
-              {running === 'prog' ? <Pause className="size-4" /> : <Play className="size-4" />}
-              {running === 'prog' ? '정지' : `재생 ♩${bpm}`}
-            </Button>
-          </div>
-
-          <Switch isSelected={withClick} onChange={setWithClick} size="sm">
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            <Switch.Content>
-              <Label>메트로놈 소리 같이 듣기</Label>
-            </Switch.Content>
-          </Switch>
-
-          {prog.length ? (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-              {prog.map((deg, i) => {
-                const c = chords[deg];
-                return (
-                  <div key={i} className="relative">
-                    <MiniChord
-                      name={c.name.replace('♭', 'b').replace('♯', '#')}
-                      sub={`${i + 1} · ${c.roman}`}
-                      active={running === 'prog' && bar === i}
-                      className="w-full"
-                    />
-                    <button
-                      type="button"
-                      aria-label="삭제"
-                      onClick={() => setProg((p) => p.filter((_, j) => j !== i))}
-                      className="absolute top-1 right-1 grid size-6 place-items-center rounded-full text-muted hover:bg-surface-secondary hover:text-danger"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-border py-6 text-center text-sm text-muted">
-              진행이 비어 있어요. 위 코드의 ＋ 버튼으로 추가하세요.
-            </p>
-          )}
-        </Card.Content>
-      </Card>
-
-      <ChangeTrainer />
-      <ChordQuiz />
+      <section id="p-change" className="scroll-mt-20">
+        <ChangeTrainer />
+      </section>
+      <section id="p-quiz" className="scroll-mt-20">
+        <ChordQuiz />
+      </section>
     </div>
   );
 }
