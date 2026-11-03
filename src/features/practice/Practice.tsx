@@ -3,6 +3,7 @@ import { Button, Card, Label, ListBox, Select, Slider, Switch, ToggleButton, Tog
 import { Hand, Minus, Pause, Play, Plus, TrendingUp, X } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
 import { ChangeTrainer } from './ChangeTrainer';
+import { ChordQuiz } from './ChordQuiz';
 import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { usePersistent } from '../../lib/storage';
 import { arpString, diatonic, pretty, SCALES, TUNING, voicings, type Mode } from '../../lib/theory';
@@ -455,6 +456,7 @@ export function Practice() {
       </Card>
 
       <ChangeTrainer />
+      <ChordQuiz />
     </div>
   );
 }

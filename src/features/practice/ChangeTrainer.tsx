@@ -7,7 +7,7 @@ import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
 
 // 1분 동안 두 코드를 몇 번 바꿔 잡는지 세는 연습 (기록은 코드 쌍마다 저장)
-const OPEN_CHORDS = ['C', 'D', 'E', 'G', 'A', 'Am', 'Em', 'Dm', 'F', 'A7', 'D7', 'E7', 'G7', 'B7', 'Cmaj7', 'Fmaj7', 'Asus2', 'Dsus4'];
+export const OPEN_CHORDS = ['C', 'D', 'E', 'G', 'A', 'Am', 'Em', 'Dm', 'F', 'A7', 'D7', 'E7', 'G7', 'B7', 'Cmaj7', 'Fmaj7', 'Asus2', 'Dsus4'];
 const DURATION = 60;
 
 function ChordPicker({ value, onChange, other }: { value: string; onChange: (c: string) => void; other: string }) {
