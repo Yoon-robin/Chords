@@ -13,15 +13,20 @@ createRoot(document.getElementById('root')!).render(
 // 인터넷이 끊겨도 모든 탭이 열리게 한다.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('./sw.js').then(() => {
-      const prefetch = () => {
-        void import('./features/tuner/Tuner');
-        void import('./features/songs/Songbook');
-        void import('./features/chords/ChordLibrary');
-        void import('./features/practice/Practice');
-      };
-      if ('requestIdleCallback' in window) requestIdleCallback(prefetch);
-      else setTimeout(prefetch, 1500);
+    void navigator.serviceWorker.register('./sw.js');
+    void navigator.serviceWorker.ready.then(async (reg) => {
+      await Promise.all([
+        import('./features/tuner/Tuner'),
+        import('./features/songs/Songbook'),
+        import('./features/chords/ChordLibrary'),
+        import('./features/practice/Practice'),
+      ]);
+      // 지금까지 받은 스크립트·스타일을 워커에 알려 캐시에 담게 한다
+      const urls = performance
+        .getEntriesByType('resource')
+        .map((r) => r.name)
+        .filter((u) => u.startsWith(location.origin) && /\/assets\//.test(u));
+      reg.active?.postMessage({ type: 'cache', urls });
     });
   });
 }
