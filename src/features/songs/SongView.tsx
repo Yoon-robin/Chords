@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
 import { ALargeSmall, ArrowDownToLine, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
-import { createLoop, damp, strum } from '../../lib/audio';
+import { click, createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
 import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
@@ -39,6 +39,8 @@ export function SongView({
   const [selected, setSelected] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentBar, setCurrentBar] = useState(-1);
+  // 시작 전 한 마디 동안 박을 세어 준다 (0이면 카운트 중 아님)
+  const [countBeat, setCountBeat] = useState(0);
   const [textSize, setTextSize] = usePersistent('song.textSize', 1);
   useWakeLock(scrolling || playing);
 
@@ -82,8 +84,18 @@ export function SongView({
           const { timeline: tl, semis: s, flats: f, capo: cp, time: ts } = state.current;
           if (!tl.length) return;
           const meter = METERS[ts];
+          if (step < meter.steps) {
+            if (step % meter.stepsPerBeat === 0) {
+              const beat = step / meter.stepsPerBeat + 1;
+              click(when, beat === 1);
+              at(() => setCountBeat(beat));
+            }
+            return;
+          }
+          step -= meter.steps;
           const barIdx = Math.floor(step / meter.steps) % tl.length;
           const e = step % meter.steps;
+          if (step === 0) at(() => setCountBeat(0));
           if (e === 0) at(() => setCurrentBar(barIdx));
           const bar = tl[barIdx];
           const { index, chord } = slotAt(bar, e, meter.steps);
@@ -107,6 +119,7 @@ export function SongView({
     if (playing) {
       loop.stop();
       setCurrentBar(-1);
+      setCountBeat(0);
     } else loop.start();
     setPlaying(!playing);
   };
@@ -253,7 +266,7 @@ export function SongView({
           <div className="flex min-w-[220px] flex-1 items-center gap-2">
             <Button size="sm" variant={playing ? 'secondary' : 'primary'} onPress={togglePlay}>
               {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-              반주
+              {countBeat ? <span className="w-[2.5em] tabular-nums">{countBeat}…</span> : '반주'}
             </Button>
             <Slider value={bpm} onChange={(v) => setPref('bpm', v as number)} minValue={40} maxValue={180} className="flex-1">
               <Label className="sr-only">템포</Label>

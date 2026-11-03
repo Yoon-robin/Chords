@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Label, ListBox, Select, Slider, Switch, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { Hand, Minus, Pause, Play, Plus, X } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
+import { ChangeTrainer } from './ChangeTrainer';
 import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { usePersistent } from '../../lib/storage';
 import { arpString, diatonic, pretty, SCALES, TUNING, voicings, type Mode } from '../../lib/theory';
@@ -354,6 +355,8 @@ export function Practice() {
           )}
         </Card.Content>
       </Card>
+
+      <ChangeTrainer />
     </div>
   );
 }
