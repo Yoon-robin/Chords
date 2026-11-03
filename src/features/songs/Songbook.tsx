@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, SearchField } from '@heroui/react';
-import { History, ListMusic, Plus } from 'lucide-react';
+import { History, ListMusic, Plus, Undo2 } from 'lucide-react';
 import { BUILTIN_SONGS } from '../../data/songs';
 import { usePersistent } from '../../lib/storage';
 import { newId, parseBody, songChords, type Song } from '../../lib/songs';
@@ -37,6 +37,22 @@ export function Songbook() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<Song | null>(null);
+  // 지운 곡은 잠시 기억해 두었다가 "되돌리기"로 원래 자리에 복구한다
+  const [deleted, setDeleted] = useState<{ song: Song; index: number } | null>(null);
+  useEffect(() => {
+    if (!deleted) return;
+    const id = setTimeout(() => setDeleted(null), 8000);
+    return () => clearTimeout(id);
+  }, [deleted]);
+  const undoDelete = () => {
+    if (!deleted) return;
+    setMine((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(deleted.index, next.length), 0, deleted.song);
+      return next;
+    });
+    setDeleted(null);
+  };
 
   const all = useMemo(() => [...mine, ...BUILTIN_SONGS], [mine]);
   const open = all.find((s) => s.id === openId) ?? null;
@@ -84,6 +100,8 @@ export function Songbook() {
             )
           }
           onDelete={() => {
+            const index = mine.findIndex((s) => s.id === open.id);
+            setDeleted({ song: open, index });
             setMine((prev) => prev.filter((s) => s.id !== open.id));
             setOpenId(null);
           }}
@@ -108,6 +126,16 @@ export function Songbook() {
           <Plus className="size-4" />곡 추가
         </Button>
       </div>
+
+      {deleted && (
+        <div role="status" className="flex items-center gap-3 rounded-xl border border-border bg-surface-secondary px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate">지운 곡: {deleted.song.title || '제목 없음'}</span>
+          <Button size="sm" variant="tertiary" onPress={undoDelete}>
+            <Undo2 className="size-4" />
+            되돌리기
+          </Button>
+        </div>
+      )}
 
       <SearchField value={query} onChange={setQuery} aria-label="곡 검색" fullWidth>
         <SearchField.Group>

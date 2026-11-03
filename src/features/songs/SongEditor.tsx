@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Button, Description, Input, Label, Modal, TextArea, TextField, ToggleButton, ToggleButtonGroup } from '@heroui/react';
-import { Sparkles } from 'lucide-react';
+import { Eye, PencilLine, Sparkles } from 'lucide-react';
 import { importText, parseBody, songChords, TIME_SIGS, type Song, type TimeSig } from '../../lib/songs';
 import { pretty } from '../../lib/theory';
+import { playChordName } from '../../components/ChordCard';
+import { LineView } from './SongView';
 
 const PLACEHOLDER = `코드 사이트에서 복사한 악보를 그대로 붙여넣어 보세요.
 
@@ -30,6 +32,14 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
   const lines = useMemo(() => parseBody(body), [body]);
   const chords = songChords(lines);
   const [notice, setNotice] = useState('');
+  const [preview, setPreview] = useState(false);
+
+  // 고친 내용이 있으면 닫기 전에 한 번 묻는다
+  const snapshot = JSON.stringify([title, artist, key, capo, bpm, time, body]);
+  const [initial] = useState(snapshot);
+  const dirty = snapshot !== initial;
+  const [confirmClose, setConfirmClose] = useState(false);
+  const requestClose = () => (dirty ? setConfirmClose(true) : onCancel());
 
   // 변환하면서 악보 머리말의 카포·키·템포를 빈 칸에 채운다
   const convert = (text: string) => {
@@ -73,7 +83,7 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
 
   return (
     <Modal>
-      <Modal.Backdrop isOpen onOpenChange={(o) => !o && onCancel()} variant="blur">
+      <Modal.Backdrop isOpen onOpenChange={(o) => !o && requestClose()} variant="blur">
         <Modal.Container size="lg" scroll="inside">
           <Modal.Dialog>
             <Modal.CloseTrigger />
@@ -126,24 +136,38 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
               </div>
 
               <TextField value={body} onChange={setBody}>
-                <div className="flex items-center justify-between">
-                  <Label>악보</Label>
-                  <Button size="sm" variant="tertiary" onPress={() => convert(body)} isDisabled={!body.trim()}>
-                    <Sparkles className="size-4" />
-                    자동 변환
-                  </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="whitespace-nowrap">악보</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="tertiary" onPress={() => convert(body)} isDisabled={!body.trim() || preview}>
+                      <Sparkles className="size-4" />
+                      자동 변환
+                    </Button>
+                    <Button size="sm" variant="tertiary" onPress={() => setPreview((v) => !v)} isDisabled={!body.trim()}>
+                      {preview ? <PencilLine className="size-4" /> : <Eye className="size-4" />}
+                      {preview ? '편집' : '미리보기'}
+                    </Button>
+                  </div>
                 </div>
-                <TextArea
-                  rows={14}
-                  placeholder={PLACEHOLDER}
-                  className="font-mono text-sm"
-                  onPaste={(e) => {
-                    // 빈 칸에 붙여넣으면 바로 변환
-                    if (body.trim()) return;
-                    e.preventDefault();
-                    convert(e.clipboardData.getData('text'));
-                  }}
-                />
+                {preview ? (
+                  <div className="flex max-h-[22rem] flex-col gap-1 overflow-y-auto rounded-xl border border-border bg-background p-3">
+                    {lines.map((l, i) => (
+                      <LineView key={i} line={l} index={i} tx={(c) => c} onChord={(c) => playChordName(c)} playingBar={null} />
+                    ))}
+                  </div>
+                ) : (
+                  <TextArea
+                    rows={14}
+                    placeholder={PLACEHOLDER}
+                    className="font-mono text-sm"
+                    onPaste={(e) => {
+                      // 빈 칸에 붙여넣으면 바로 변환
+                      if (body.trim()) return;
+                      e.preventDefault();
+                      convert(e.clipboardData.getData('text'));
+                    }}
+                  />
+                )}
                 <Description>
                   {notice ||
                     '빈 칸에 악보를 붙여넣으면 자동으로 변환됩니다. 코드·가사·탭 악보·카포 정보를 알아서 정리해요.'}
@@ -161,11 +185,28 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
                 </div>
               )}
             </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onPress={onCancel}>
-                취소
-              </Button>
-              <Button onPress={save}>저장</Button>
+            <Modal.Footer className="flex-wrap">
+              {confirmClose ? (
+                <>
+                  <span role="alert" className="mr-auto text-sm font-semibold text-danger">
+                    저장하지 않은 내용이 있어요
+                  </span>
+                  <Button variant="danger-soft" onPress={onCancel}>
+                    버리고 닫기
+                  </Button>
+                  <Button variant="secondary" onPress={() => setConfirmClose(false)}>
+                    계속 편집
+                  </Button>
+                  <Button onPress={save}>저장</Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onPress={requestClose}>
+                    취소
+                  </Button>
+                  <Button onPress={save}>저장</Button>
+                </>
+              )}
             </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>

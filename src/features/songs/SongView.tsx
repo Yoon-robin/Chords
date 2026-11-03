@@ -339,7 +339,8 @@ function ChordButton({ chord, onChord, active }: { chord: string; onChord: (c: s
   );
 }
 
-function LineView({
+// 악보 한 줄 그리기 (곡 화면과 편집기 미리보기에서 함께 씀)
+export function LineView({
   line,
   index,
   tx,
