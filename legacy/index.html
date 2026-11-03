@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>어쿠스틱 코드북</title>
+    <meta name="description" content="어쿠스틱 기타 코드 사전, 키별 코드, 진행 연습" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C8 2 3 5.5 3 11c0 7 7 15 13 19 6-4 13-12 13-19 0-5.5-5-9-13-9z' fill='%23b5562b'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="top-inner">
+        <div class="brand">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2C8 2 3 5.5 3 11c0 7 7 15 13 19 6-4 13-12 13-19 0-5.5-5-9-13-9z" /></svg>
+          <h1>어쿠스틱 코드북</h1>
+        </div>
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="dict">코드 사전</button>
+          <button role="tab" data-tab="keys">키 &amp; 진행</button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section id="tab-dict" class="tab" role="tabpanel">
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="코드 검색 — Am7, F#m, Bbmaj7, Gsus4" />
+        </div>
+
+        <div class="picker">
+          <span class="picker-label">루트</span>
+          <div id="roots" class="chips roots"></div>
+        </div>
+        <div class="picker">
+          <span class="picker-label">종류</span>
+          <div id="qualities" class="chips"></div>
+        </div>
+
+        <div class="chord-head">
+          <div class="chord-title">
+            <h2 id="chord-name"></h2>
+            <p id="chord-desc"></p>
+          </div>
+          <div id="tones" class="tones"></div>
+          <div class="seg" id="label-mode" aria-label="다이어그램 표시">
+            <button data-v="interval">음정</button>
+            <button data-v="note">음이름</button>
+            <button data-v="none">숨김</button>
+          </div>
+        </div>
+
+        <div id="voicings" class="voicing-grid"></div>
+        <p class="hint">카드를 누르면 스트럼 소리가 납니다 · 키보드 ← → 루트, ↑ ↓ 종류, Space 재생</p>
+      </section>
+
+      <section id="tab-keys" class="tab" role="tabpanel">
+        <div class="picker">
+          <span class="picker-label">키</span>
+          <div id="keys" class="chips roots"></div>
+        </div>
+        <div class="row-controls">
+          <div class="seg" id="key-mode">
+            <button data-v="major">메이저</button>
+            <button data-v="minor">마이너</button>
+          </div>
+          <div class="seg" id="chord-size">
+            <button data-v="3">3화음</button>
+            <button data-v="7">7화음</button>
+          </div>
+        </div>
+
+        <h3 class="section-title">다이아토닉 코드 <small id="key-title"></small></h3>
+        <div id="diatonic" class="diatonic-grid"></div>
+
+        <h3 class="section-title">코드 진행</h3>
+        <div class="prog-controls">
+          <label class="field">
+            <span>진행</span>
+            <select id="preset"></select>
+          </label>
+          <label class="field">
+            <span>리듬</span>
+            <select id="pattern"></select>
+          </label>
+          <label class="field bpm">
+            <span>템포 <b id="bpm-value"></b></span>
+            <input id="bpm" type="range" min="50" max="160" step="1" />
+          </label>
+          <button id="play" class="btn-primary"></button>
+        </div>
+        <div id="progression" class="prog-strip"></div>
+        <p class="hint">다이아토닉 카드의 <b>＋</b> 버튼으로 진행에 코드를 추가할 수 있습니다</p>
+      </section>
+    </main>
+
+    <script src="js/theory.js"></script>
+    <script src="js/diagram.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

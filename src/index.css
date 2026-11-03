@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+@import '@heroui/styles';
+
+/* 따뜻한 원목 느낌의 테마 (HeroUI 토큰 덮어쓰기) */
+:root {
+  --accent: oklch(0.62 0.16 45);
+  --accent-foreground: oklch(0.99 0.01 60);
+  --background: oklch(0.97 0.008 75);
+  --surface: oklch(0.995 0.004 75);
+  --surface-secondary: oklch(0.95 0.01 75);
+  --surface-tertiary: oklch(0.93 0.012 75);
+  --string-color: oklch(0.48 0.03 55);
+  --fret-color: oklch(0.8 0.03 70);
+}
+
+.dark,
+[data-theme='dark'] {
+  --accent: oklch(0.72 0.15 52);
+  --accent-foreground: oklch(0.18 0.02 50);
+  --background: oklch(0.155 0.008 55);
+  --surface: oklch(0.2 0.01 55);
+  --surface-secondary: oklch(0.245 0.012 55);
+  --surface-tertiary: oklch(0.28 0.012 55);
+  --string-color: oklch(0.75 0.03 70);
+  --fret-color: oklch(0.38 0.015 60);
+}
+
+@theme inline {
+  --color-string: var(--string-color);
+  --color-fret: var(--fret-color);
+  --font-sans: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--background);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 하단 탭바 높이만큼 여백 + iOS 안전 영역 */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+@keyframes ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+.ringing {
+  animation: ring 0.6s ease;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

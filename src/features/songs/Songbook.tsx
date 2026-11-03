@@ -1,0 +1,184 @@
+import { useMemo, useState } from 'react';
+import { Button, Chip, SearchField } from '@heroui/react';
+import { ListMusic, Plus } from 'lucide-react';
+import { BUILTIN_SONGS } from '../../data/songs';
+import { usePersistent } from '../../lib/storage';
+import { newId, parseBody, songChords, type Song } from '../../lib/songs';
+import { pretty } from '../../lib/theory';
+import { SongView } from './SongView';
+import { SongEditor } from './SongEditor';
+
+const FILTERS = [
+  { id: 'all', label: '전체' },
+  { id: 'mine', label: '내 노래' },
+  { id: 'lyrics', label: '가사 포함' },
+  { id: 'easy', label: '입문' },
+] as const;
+type Filter = (typeof FILTERS)[number]['id'];
+
+export function Songbook() {
+  const [mine, setMine] = usePersistent<Song[]>('songs.mine', []);
+  const [openId, setOpenIdState] = usePersistent<string | null>('songs.open', null);
+  const setOpenId = (id: string | null) => {
+    setOpenIdState(id);
+    window.scrollTo({ top: 0 });
+  };
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [editing, setEditing] = useState<Song | null>(null);
+
+  const all = useMemo(() => [...mine, ...BUILTIN_SONGS], [mine]);
+  const open = all.find((s) => s.id === openId) ?? null;
+
+  const isMine = (s: Song) => mine.some((m) => m.id === s.id);
+
+  const list = all.filter((s) => {
+    const q = query.trim().toLowerCase();
+    if (q && !`${s.title} ${s.artist} ${(s.tags ?? []).join(' ')}`.toLowerCase().includes(q)) return false;
+    if (filter === 'mine') return isMine(s);
+    if (filter === 'lyrics') return s.hasLyrics;
+    if (filter === 'easy') return s.tags?.includes('입문');
+    return true;
+  });
+
+  const saveSong = (song: Song) => {
+    setMine((prev) => {
+      const i = prev.findIndex((s) => s.id === song.id);
+      if (i < 0) return [song, ...prev];
+      const next = [...prev];
+      next[i] = song;
+      return next;
+    });
+    setEditing(null);
+    setOpenId(song.id);
+  };
+
+  const editor = editing && (
+    <SongEditor song={editing} onCancel={() => setEditing(null)} onSave={saveSong} />
+  );
+
+  if (open) {
+    return (
+      <>
+        <SongView
+          song={open}
+          editable={isMine(open)}
+          onBack={() => setOpenId(null)}
+          onEdit={() =>
+            setEditing(
+              isMine(open)
+                ? open
+                : { ...open, id: newId(), builtin: false, title: open.title, tags: (open.tags ?? []).filter((t) => t !== '입문') },
+            )
+          }
+          onDelete={() => {
+            setMine((prev) => prev.filter((s) => s.id !== open.id));
+            setOpenId(null);
+          }}
+        />
+        {editor}
+      </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">송북</h1>
+          <p className="text-sm text-muted">곡 {all.length}개 · 코드를 누르면 소리가 나요</p>
+        </div>
+        <Button
+          onPress={() =>
+            setEditing({ id: newId(), title: '', artist: '', hasLyrics: true, body: '', tags: [] })
+          }
+        >
+          <Plus className="size-4" />곡 추가
+        </Button>
+      </div>
+
+      <SearchField value={query} onChange={setQuery} aria-label="곡 검색" fullWidth>
+        <SearchField.Group>
+          <SearchField.SearchIcon />
+          <SearchField.Input placeholder="제목, 가수, 장르로 검색" />
+          <SearchField.ClearButton />
+        </SearchField.Group>
+      </SearchField>
+
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
+              filter === f.id ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-surface text-muted hover:text-foreground'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-14 text-center text-muted">
+          <ListMusic className="size-8" />
+          <p>{filter === 'mine' ? '아직 추가한 곡이 없어요. 코드 악보를 붙여넣어 곡을 추가해 보세요.' : '검색 결과가 없어요.'}</p>
+        </div>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {list.map((s) => {
+            const chords = songChords(parseBody(s.body));
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(s.id)}
+                  className="group flex w-full flex-col gap-2 rounded-2xl border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-lg font-bold">{s.title || '제목 없음'}</div>
+                      <div className="truncate text-sm text-muted">{s.artist}</div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      {isMine(s) && (
+                        <Chip size="sm" color="accent" variant="soft">
+                          내 노래
+                        </Chip>
+                      )}
+                      {s.key && (
+                        <Chip size="sm" variant="secondary">
+                          키 {pretty(s.key)}
+                        </Chip>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {chords.slice(0, 8).map((c) => (
+                      <span key={c} className="rounded-md bg-surface-secondary px-2 py-0.5 text-xs font-bold text-accent">
+                        {pretty(c)}
+                      </span>
+                    ))}
+                    {chords.length > 8 && <span className="text-xs text-muted">+{chords.length - 8}</span>}
+                  </div>
+                  <div className="flex gap-3 text-xs text-muted">
+                    {s.capo ? <span>카포 {s.capo}</span> : null}
+                    {s.bpm ? <span>♩ {s.bpm}</span> : null}
+                    <span>{s.hasLyrics ? '가사 + 코드' : '코드 진행만'}</span>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="text-xs leading-relaxed text-muted">
+        인기곡은 저작권 때문에 가사 없이 코드 진행만 들어 있어요. 곡을 열고 <b>편집</b>을 누르면 내 노래로 복사되고, 갖고 있는
+        악보의 가사와 코드를 붙여넣어 완성할 수 있어요.
+      </p>
+      {editor}
+    </div>
+  );
+}
