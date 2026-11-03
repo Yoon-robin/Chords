@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, SearchField } from '@heroui/react';
-import { ListMusic, Plus } from 'lucide-react';
+import { History, ListMusic, Plus } from 'lucide-react';
 import { BUILTIN_SONGS } from '../../data/songs';
 import { usePersistent } from '../../lib/storage';
 import { newId, parseBody, songChords, type Song } from '../../lib/songs';
@@ -19,10 +19,20 @@ type Filter = (typeof FILTERS)[number]['id'];
 export function Songbook() {
   const [mine, setMine] = usePersistent<Song[]>('songs.mine', []);
   const [openId, setOpenIdState] = usePersistent<string | null>('songs.open', null);
+  const [recent, setRecent] = usePersistent<string[]>('songs.recent', []);
+  // 곡을 열 때 목록 위치를 기억했다가 돌아오면 그 자리로
+  const listScroll = useRef(0);
   const setOpenId = (id: string | null) => {
+    if (id) {
+      if (!openId) listScroll.current = window.scrollY;
+      setRecent((r) => [id, ...r.filter((x) => x !== id)].slice(0, 6));
+      window.scrollTo({ top: 0 });
+    }
     setOpenIdState(id);
-    window.scrollTo({ top: 0 });
   };
+  useLayoutEffect(() => {
+    if (!openId) window.scrollTo({ top: listScroll.current });
+  }, [openId]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<Song | null>(null);
@@ -31,6 +41,7 @@ export function Songbook() {
   const open = all.find((s) => s.id === openId) ?? null;
 
   const isMine = (s: Song) => mine.some((m) => m.id === s.id);
+  const recentSongs = recent.map((id) => all.find((s) => s.id === id)).filter((s): s is Song => !!s);
 
   const list = all.filter((s) => {
     const q = query.trim().toLowerCase();
@@ -119,6 +130,28 @@ export function Songbook() {
           </button>
         ))}
       </div>
+
+      {recentSongs.length > 0 && !query.trim() && filter === 'all' && (
+        <section aria-label="최근 연 곡">
+          <h2 className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-muted">
+            <History className="size-3.5" />
+            최근 연 곡
+          </h2>
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+            {recentSongs.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setOpenId(s.id)}
+                className="flex max-w-44 shrink-0 flex-col rounded-xl border border-border bg-surface px-3 py-2 text-left transition hover:border-accent"
+              >
+                <span className="truncate text-sm font-bold">{s.title || '제목 없음'}</span>
+                <span className="truncate text-xs text-muted">{s.artist}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {list.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-14 text-center text-muted">

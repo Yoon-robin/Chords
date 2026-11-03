@@ -11,6 +11,7 @@ import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineB
 
 // 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
 const MAX_SHIFT = 11;
+type SongPrefs = { semis?: number; flats?: boolean; bpm?: number };
 // 악보 글자 크기 (보면대 거리에 맞게 고른다)
 const TEXT_SIZES = [14, 16, 19, 23];
 
@@ -27,14 +28,17 @@ export function SongView({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const [semis, setSemis] = useState(0);
-  const [flats, setFlats] = useState(false);
+  // 조옮김·표기·템포는 곡마다 기억한다 (다음에 열어도 내 키로)
+  const [prefs, setPrefs] = usePersistent<SongPrefs>(`song.prefs.${song.id}`, {});
+  const semis = prefs.semis ?? 0;
+  const flats = prefs.flats ?? false;
+  const bpm = prefs.bpm ?? song.bpm ?? 80;
+  const setPref = <K extends keyof SongPrefs>(k: K, v: SongPrefs[K]) => setPrefs((p) => ({ ...p, [k]: v }));
   const [scrolling, setScrolling] = useState(false);
   const [speed, setSpeed] = useState(4);
   const [selected, setSelected] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentBar, setCurrentBar] = useState(-1);
-  const [bpm, setBpm] = useState(song.bpm ?? 80);
   const [textSize, setTextSize] = usePersistent('song.textSize', 1);
   useWakeLock(scrolling || playing);
 
@@ -124,7 +128,7 @@ export function SongView({
     if (r.top < 200 || r.bottom > window.innerHeight - 120) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [playingBar, scrolling]);
 
-  const shiftSemis = (d: number) => setSemis((s) => Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, s + d)));
+  const shiftSemis = (d: number) => setPref('semis', Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, semis + d)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -201,11 +205,20 @@ export function SongView({
           </Button>
           <button
             type="button"
-            onClick={() => setFlats((f) => !f)}
+            onClick={() => setPref('flats', !flats)}
             className="rounded-lg bg-surface-secondary px-2 py-1 text-xs font-bold whitespace-nowrap text-muted hover:text-foreground"
           >
             {flats ? '♭ 표기' : '♯ 표기'}
           </button>
+          {(semis !== 0 || prefs.bpm != null) && (
+            <button
+              type="button"
+              onClick={() => setPrefs({})}
+              className="rounded-lg px-2 py-1 text-xs font-bold whitespace-nowrap text-accent hover:bg-accent/15"
+            >
+              원래대로
+            </button>
+          )}
         </div>
 
         <Button
@@ -242,7 +255,7 @@ export function SongView({
               {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
               반주
             </Button>
-            <Slider value={bpm} onChange={(v) => setBpm(v as number)} minValue={40} maxValue={180} className="flex-1">
+            <Slider value={bpm} onChange={(v) => setPref('bpm', v as number)} minValue={40} maxValue={180} className="flex-1">
               <Label className="sr-only">템포</Label>
               <Slider.Track>
                 <Slider.Fill />
