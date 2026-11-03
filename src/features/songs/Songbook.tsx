@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, SearchField } from '@heroui/react';
-import { History, ListMusic, Plus, Undo2 } from 'lucide-react';
+import { History, ListMusic, Plus, Star, Undo2 } from 'lucide-react';
 import { BUILTIN_SONGS } from '../../data/songs';
 import { usePersistent } from '../../lib/storage';
 import { newId, parseBody, songChords, type Song } from '../../lib/songs';
@@ -11,6 +11,7 @@ import { BackupPanel } from './BackupPanel';
 
 const FILTERS = [
   { id: 'all', label: '전체' },
+  { id: 'fav', label: '즐겨찾기' },
   { id: 'mine', label: '내 노래' },
   { id: 'lyrics', label: '가사 포함' },
   { id: 'easy', label: '입문' },
@@ -21,6 +22,9 @@ export function Songbook() {
   const [mine, setMine] = usePersistent<Song[]>('songs.mine', []);
   const [openId, setOpenIdState] = usePersistent<string | null>('songs.open', null);
   const [recent, setRecent] = usePersistent<string[]>('songs.recent', []);
+  const [favs, setFavs] = usePersistent<string[]>('songs.fav', []);
+  const isFav = (s: Song) => favs.includes(s.id);
+  const toggleFav = (id: string) => setFavs((f) => (f.includes(id) ? f.filter((x) => x !== id) : [id, ...f]));
   // 곡을 열 때 목록 위치를 기억했다가 돌아오면 그 자리로
   const listScroll = useRef(0);
   const setOpenId = (id: string | null) => {
@@ -60,14 +64,18 @@ export function Songbook() {
   const isMine = (s: Song) => mine.some((m) => m.id === s.id);
   const recentSongs = recent.map((id) => all.find((s) => s.id === id)).filter((s): s is Song => !!s);
 
-  const list = all.filter((s) => {
-    const q = query.trim().toLowerCase();
-    if (q && !`${s.title} ${s.artist} ${(s.tags ?? []).join(' ')}`.toLowerCase().includes(q)) return false;
-    if (filter === 'mine') return isMine(s);
-    if (filter === 'lyrics') return s.hasLyrics;
-    if (filter === 'easy') return s.tags?.includes('입문');
-    return true;
-  });
+  // 즐겨찾기한 곡을 맨 위로 (나머지는 원래 순서)
+  const list = all
+    .filter((s) => {
+      const q = query.trim().toLowerCase();
+      if (q && !`${s.title} ${s.artist} ${(s.tags ?? []).join(' ')}`.toLowerCase().includes(q)) return false;
+      if (filter === 'fav') return isFav(s);
+      if (filter === 'mine') return isMine(s);
+      if (filter === 'lyrics') return s.hasLyrics;
+      if (filter === 'easy') return s.tags?.includes('입문');
+      return true;
+    })
+    .sort((a, b) => Number(isFav(b)) - Number(isFav(a)));
 
   const saveSong = (song: Song) => {
     setMine((prev) => {
@@ -91,6 +99,8 @@ export function Songbook() {
         <SongView
           song={open}
           editable={isMine(open)}
+          favorite={isFav(open)}
+          onToggleFavorite={() => toggleFav(open.id)}
           onBack={() => setOpenId(null)}
           onEdit={() =>
             setEditing(
@@ -185,7 +195,15 @@ export function Songbook() {
       {list.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-14 text-center text-muted">
           <ListMusic className="size-8" />
-          <p>{filter === 'mine' ? '아직 추가한 곡이 없어요. 코드 악보를 붙여넣어 곡을 추가해 보세요.' : '검색 결과가 없어요.'}</p>
+          <p>
+            {query.trim()
+              ? '검색 결과가 없어요.'
+              : filter === 'mine'
+                ? '아직 추가한 곡이 없어요. 코드 악보를 붙여넣어 곡을 추가해 보세요.'
+                : filter === 'fav'
+                  ? '곡을 열고 별을 누르면 여기에 모여요.'
+                  : '검색 결과가 없어요.'}
+          </p>
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -200,7 +218,10 @@ export function Songbook() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="truncate text-lg font-bold">{s.title || '제목 없음'}</div>
+                      <div className="flex items-center gap-1.5 text-lg font-bold">
+                        {isFav(s) && <Star className="size-4 shrink-0 fill-accent text-accent" aria-label="즐겨찾기" />}
+                        <span className="truncate">{s.title || '제목 없음'}</span>
+                      </div>
                       <div className="truncate text-sm text-muted">{s.artist}</div>
                     </div>
                     <div className="flex shrink-0 gap-1">

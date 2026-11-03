@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
@@ -21,12 +21,16 @@ export function SongView({
   onBack,
   onEdit,
   onDelete,
+  favorite,
+  onToggleFavorite,
 }: {
   song: Song;
   editable: boolean;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  favorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   // 조옮김·표기·템포는 곡마다 기억한다 (다음에 열어도 내 키로)
   const [prefs, setPrefs] = usePersistent<SongPrefs>(`song.prefs.${song.id}`, {});
@@ -174,6 +178,16 @@ export function SongView({
           목록
         </Button>
         <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          aria-label={favorite ? '즐겨찾기에서 빼기' : '즐겨찾기에 추가'}
+          aria-pressed={favorite}
+          onPress={onToggleFavorite}
+        >
+          <Star className={`size-5 ${favorite ? 'fill-accent text-accent' : ''}`} />
+        </Button>
         <Button variant="tertiary" size="sm" onPress={onEdit}>
           <Pencil className="size-4" />
           {editable ? '편집' : (
