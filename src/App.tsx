@@ -1,11 +1,14 @@
+import { lazy, Suspense } from 'react';
 import { Button, Tabs, useTheme } from '@heroui/react';
 import { BookOpen, Gauge, Grid3x3, Metronome, Moon, Sun, TriangleAlert, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { usePersistent, useStorageError } from './lib/storage';
-import { Tuner } from './features/tuner/Tuner';
-import { Songbook } from './features/songs/Songbook';
-import { ChordLibrary } from './features/chords/ChordLibrary';
-import { Practice } from './features/practice/Practice';
+
+// 탭마다 따로 불러와 첫 화면을 가볍게 (처음 연 탭만 내려받음)
+const Tuner = lazy(() => import('./features/tuner/Tuner').then((m) => ({ default: m.Tuner })));
+const Songbook = lazy(() => import('./features/songs/Songbook').then((m) => ({ default: m.Songbook })));
+const ChordLibrary = lazy(() => import('./features/chords/ChordLibrary').then((m) => ({ default: m.ChordLibrary })));
+const Practice = lazy(() => import('./features/practice/Practice').then((m) => ({ default: m.Practice })));
 
 const TABS = [
   { id: 'tuner', label: '튜너', icon: Gauge },
@@ -83,10 +86,12 @@ export function App() {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.16 }}
           >
-            {tab === 'tuner' && <Tuner />}
-            {tab === 'songs' && <Songbook />}
-            {tab === 'chords' && <ChordLibrary />}
-            {tab === 'practice' && <Practice />}
+            <Suspense fallback={<div className="py-24 text-center text-sm text-muted">불러오는 중…</div>}>
+              {tab === 'tuner' && <Tuner />}
+              {tab === 'songs' && <Songbook />}
+              {tab === 'chords' && <ChordLibrary />}
+              {tab === 'practice' && <Practice />}
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>

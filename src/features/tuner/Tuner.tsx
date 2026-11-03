@@ -180,14 +180,18 @@ export function Tuner() {
       </section>
 
       <div className="flex w-full items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-secondary">
-          <div className="h-full rounded-full bg-accent transition-[width] duration-75" style={{ width: `${level * 100}%` }} />
-        </div>
+        {/* 마이크가 켜져 있을 때만 입력 음량을 보여 주고, 꺼져 있으면 시작 버튼을 넓게 */}
+        {listening && (
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-secondary" aria-label="입력 음량">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-75" style={{ width: `${level * 100}%` }} />
+          </div>
+        )}
         <Button
           size="lg"
           variant={listening ? 'secondary' : 'primary'}
           isPending={status === 'starting'}
           onPress={() => (listening ? stop() : start())}
+          className={listening ? '' : 'flex-1'}
         >
           {listening ? <MicOff className="size-5" /> : <Mic className="size-5" />}
           {listening ? '정지' : '튜닝 시작'}

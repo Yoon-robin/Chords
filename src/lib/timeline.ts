@@ -1,4 +1,4 @@
-// 악보 마디 → 반주용 타임라인
+// 악보 마디 → 반주용 타임라인 (마디 줄과 가사 위 코드를 악보 순서대로)
 //   N.C. / NC        → 쉬는 칸 (소리 없음)
 //   %  (마디 전체)    → 앞 마디 반복
 //   / - . %          → 바로 앞 코드를 한 칸 더
@@ -31,6 +31,15 @@ export function buildTimeline(lines: Line[]): TimelineBar[] {
   const out: TimelineBar[] = [];
   let prevSlots: Slot[] = [];
   lines.forEach((l, li) => {
+    // 가사 위 코드는 코드 하나를 한 마디로 본다 (bar = 가사 조각 번호)
+    if (l.kind === 'lyric') {
+      l.segments.forEach((s, si) => {
+        if (!s.chord || !isChordToken(s.chord)) return;
+        prevSlots = [s.chord];
+        out.push({ line: li, bar: si, slots: prevSlots });
+      });
+      return;
+    }
     if (l.kind !== 'bars') return;
     l.bars.forEach((tokens, bi) => {
       const prevChord = prevSlots.length ? prevSlots[prevSlots.length - 1] : null;

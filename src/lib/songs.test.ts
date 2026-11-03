@@ -28,6 +28,16 @@ describe('타임라인', () => {
     ]);
   });
 
+  it('가사 위 코드도 악보 순서대로 한 마디씩 넣는다', () => {
+    const tl = buildTimeline(parseBody('| Em | C |\n[G]Amazing [C]grace how [G]sweet'));
+    expect(tl.map((b) => b.slots[0])).toEqual(['Em', 'C', 'G', 'C', 'G']);
+    expect(tl.slice(2).map((b) => [b.line, b.bar])).toEqual([
+      [1, 0],
+      [1, 1],
+      [1, 2],
+    ]);
+  });
+
   it('마디 안 코드 두 개는 반씩 나눈다 (3/4 포함)', () => {
     const [bar] = buildTimeline(parseBody('| G D |'));
     const { steps } = METERS['3/4'];

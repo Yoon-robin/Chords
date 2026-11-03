@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SearchField, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { VoicingCard } from '../../components/ChordCard';
 import type { LabelMode } from '../../components/ChordDiagram';
@@ -37,6 +37,15 @@ export function ChordLibrary() {
     return () => window.removeEventListener('keydown', onKey);
   }, [q.id, list, setRoot, setQid]);
 
+  // 가로 스크롤 줄에서 고른 종류가 화면 밖에 있으면 보이게 옮긴다 (검색·키보드로 바꿨을 때)
+  const qualityRow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = qualityRow.current;
+    const el = row?.querySelector<HTMLElement>(`[data-qid="${CSS.escape(q.id)}"]`);
+    if (!row || !el || row.scrollWidth <= row.clientWidth) return;
+    row.scrollTo({ left: el.offsetLeft - row.clientWidth / 2 + el.offsetWidth / 2, behavior: 'smooth' });
+  }, [q.id]);
+
   const pill = (active: boolean) =>
     `rounded-xl border px-3 py-1.5 text-sm font-semibold transition active:scale-95 ${
       active ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-surface hover:border-accent'
@@ -74,12 +83,16 @@ export function ChordLibrary() {
         ))}
       </div>
       {/* 휴대폰에서는 한 줄 가로 스크롤로 두어 다이어그램이 첫 화면에 보이게 한다 */}
-      <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+      <div
+        ref={qualityRow}
+        className="no-scrollbar relative -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      >
         {QUALITIES.map((x) => (
           <button
             key={x.id}
             type="button"
             title={x.name}
+            data-qid={x.id}
             onClick={() => setQid(x.id)}
             className={`shrink-0 ${pill(x.id === q.id)}`}
           >

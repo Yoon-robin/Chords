@@ -115,6 +115,15 @@ export function SongView({
 
   const keyLabel = song.key ? pretty(transposeText(song.key, semis, flats)) : null;
   const playingBar = playing && currentBar >= 0 ? (timeline[currentBar] ?? null) : null;
+  // 반주 중에는 지금 마디가 화면 가운데 근처에 오도록 따라간다 (자동 스크롤 중엔 그대로)
+  useEffect(() => {
+    if (!playingBar || scrolling) return;
+    const el = document.querySelector(`[data-pos="${playingBar.line}-${playingBar.bar}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 200 || r.bottom > window.innerHeight - 120) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [playingBar, scrolling]);
+
   const shiftSemis = (d: number) => setSemis((s) => Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, s + d)));
 
   return (
@@ -258,12 +267,14 @@ function playingBarHas(bar: TimelineBar | null, chord: string, tx: (c: string) =
   return !!bar && bar.slots.some((c) => c != null && tx(c) === chord);
 }
 
-function ChordButton({ chord, onChord }: { chord: string; onChord: (c: string) => void }) {
+function ChordButton({ chord, onChord, active }: { chord: string; onChord: (c: string) => void; active?: boolean }) {
   return (
     <button
       type="button"
       onClick={() => onChord(chord)}
-      className="rounded-md px-0.5 font-bold text-accent transition hover:bg-accent/15"
+      className={`rounded-md px-0.5 font-bold transition hover:bg-accent/15 ${
+        active ? 'bg-accent text-accent-foreground hover:bg-accent' : 'text-accent'
+      }`}
     >
       {pretty(chord)}
     </button>
@@ -309,6 +320,7 @@ function LineView({
             return (
               <div
                 key={bi}
+                data-pos={`${index}-${bi}`}
                 className={`flex min-h-[2.75em] items-center justify-around gap-1 rounded-xl border px-2 text-[1.125em] transition ${
                   active ? 'border-accent bg-accent/15' : 'border-border bg-surface'
                 }`}
@@ -333,8 +345,18 @@ function LineView({
       return (
         <div className="flex flex-wrap items-end text-[1.125em] leading-tight">
           {line.segments.map((s, i) => (
-            <span key={i} className="inline-flex flex-col">
-              <span className="h-[1.5em] pr-1 text-[0.9em]">{s.chord ? <ChordButton chord={tx(s.chord)} onChord={onChord} /> : ' '}</span>
+            <span key={i} data-pos={`${index}-${i}`} className="inline-flex flex-col">
+              <span className="h-[1.5em] pr-1 text-[0.9em]">
+                {s.chord ? (
+                  <ChordButton
+                    chord={tx(s.chord)}
+                    onChord={onChord}
+                    active={playingBar?.line === index && playingBar.bar === i}
+                  />
+                ) : (
+                  ' '
+                )}
+              </span>
               <span className="whitespace-pre">{s.text || ' '}</span>
             </span>
           ))}
