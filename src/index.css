@@ -2,9 +2,11 @@
 @import '@heroui/styles';
 
 /* 따뜻한 원목 느낌의 테마 (HeroUI 토큰 덮어쓰기) */
+/* 라이트 모드 accent·muted는 흰 글자/배경과 명도 대비 4.5:1 이상이 되도록 어둡게 잡는다 */
 :root {
-  --accent: oklch(0.62 0.16 45);
+  --accent: oklch(0.54 0.16 42);
   --accent-foreground: oklch(0.99 0.01 60);
+  --muted: oklch(0.47 0.012 60);
   --background: oklch(0.97 0.008 75);
   --surface: oklch(0.995 0.004 75);
   --surface-secondary: oklch(0.95 0.01 75);
@@ -17,6 +19,7 @@
 [data-theme='dark'] {
   --accent: oklch(0.72 0.15 52);
   --accent-foreground: oklch(0.18 0.02 50);
+  --muted: oklch(0.72 0.012 65);
   --background: oklch(0.155 0.008 55);
   --surface: oklch(0.2 0.01 55);
   --surface-secondary: oklch(0.245 0.012 55);

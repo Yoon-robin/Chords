@@ -1,7 +1,19 @@
 <!doctype html>
-<html lang="ko" class="dark" data-theme="dark">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // 저장된 테마를 그리기 전에 적용 (useTheme과 같은 키, 기본은 다크)
+      (function () {
+        var t = 'dark';
+        try {
+          t = localStorage.getItem('heroui-theme') || 'dark';
+        } catch (e) {}
+        if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.classList.add(t);
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#16120f" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />

@@ -128,32 +128,25 @@ export function VoicingCard({
     flash(ref.current);
   };
   return (
+    // 카드 전체 대신 다이어그램 부분만 버튼으로 둬서 아르페지오 버튼과 겹치지 않게 한다
     <div
       ref={ref}
-      role="button"
-      tabIndex={0}
-      onClick={play}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          play();
-        }
-      }}
-      className="cursor-pointer rounded-2xl border border-border bg-surface p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-accent"
+      className="rounded-2xl border border-border bg-surface p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-accent"
     >
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="font-bold">{voicing.position}</span>
-        {voicing.shape && (
-          <span className="rounded-md bg-surface-secondary px-2 py-0.5 text-xs text-muted">{voicing.shape}</span>
-        )}
-      </div>
-      <ChordDiagram voicing={voicing} tones={tones} labels={labels} title={name} className="mx-auto max-w-[150px]" />
+      <button type="button" onClick={play} aria-label={`${name} ${voicing.position} 스트럼`} className="block w-full text-left">
+        <div className="mb-1 flex items-center justify-between text-sm">
+          <span className="font-bold">{voicing.position}</span>
+          {voicing.shape && (
+            <span className="rounded-md bg-surface-secondary px-2 py-0.5 text-xs text-muted">{voicing.shape}</span>
+          )}
+        </div>
+        <ChordDiagram voicing={voicing} tones={tones} labels={labels} title={name} className="mx-auto max-w-[150px]" />
+      </button>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
         <code className="text-xs tracking-wider text-muted">{voicing.code}</code>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={() => {
             arpeggio(voicing.frets, {});
             flash(ref.current);
           }}

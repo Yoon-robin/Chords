@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Button, Tabs, useTheme } from '@heroui/react';
 import { BookOpen, Gauge, Grid3x3, Metronome, Moon, Sun, TriangleAlert, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -26,6 +26,12 @@ export function App() {
   };
   const { resolvedTheme, setTheme } = useTheme('dark');
   const [storageFailed, dismissStorage] = useStorageError();
+
+  // 휴대폰 상단 바 색도 테마 배경에 맞춘다
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (meta) meta.content = getComputedStyle(document.body).backgroundColor;
+  }, [resolvedTheme]);
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
