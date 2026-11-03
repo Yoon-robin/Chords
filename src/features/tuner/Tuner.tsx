@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Description, Label, ListBox, Select, Slider, Switch } from '@heroui/react';
 import { Check, Mic, MicOff, Volume2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { pluck } from '../../lib/audio';
+import { click, now, pluck } from '../../lib/audio';
 import { freqToMidi, midiName, midiToFreq, NOTE_NAMES } from '../../lib/theory';
 import { usePersistent } from '../../lib/storage';
 import { useTuner } from './useTuner';
@@ -100,16 +100,28 @@ export function Tuner() {
     if (auto && freq) setManual(target);
   }, [auto, freq, target]);
 
-  // 0.6초 동안 계속 맞춰져 있으면 그 줄은 완료 표시 (중간에 벗어나면 타이머 초기화)
+  // 0.6초 동안 계속 맞춰져 있으면 그 줄은 완료 표시 (중간에 벗어나면 타이머 초기화).
+  // 완료되면 짧은 알림음을 내고, 수동 모드에서는 아직 안 맞춘 다음 줄로 넘어간다.
   useEffect(() => {
-    if (!inTune) return;
-    const id = setTimeout(() => setTuned((s) => (s.has(target) ? s : new Set(s).add(target))), 600);
+    if (!inTune || tuned.has(target)) return;
+    const id = setTimeout(() => {
+      const next = new Set(tuned).add(target);
+      setTuned(next);
+      click(now() + 0.01, true);
+      if (!auto) {
+        const rest = [1, 2, 3, 4, 5].map((d) => (target + d) % 6).find((i) => !next.has(i));
+        if (rest != null) setManual(rest);
+      }
+    }, 600);
     return () => clearTimeout(id);
-  }, [inTune, target]);
+  }, [inTune, target, tuned, auto]);
 
   useEffect(() => setTuned(new Set()), [tuningId]);
 
-  const hint = !listening
+  const allTuned = tuned.size === tuning.midi.length;
+  const hint = allTuned
+    ? '모든 줄을 맞췄어요. 연주를 시작하세요!'
+    : !listening
     ? '마이크를 켜고 줄을 하나씩 튕겨 보세요'
     : !hasSignal
       ? `${6 - target}번줄을 튕겨 주세요`

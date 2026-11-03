@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
@@ -50,8 +50,31 @@ export function SongView({
 
   const capo = song.capo ?? 0;
   const time = song.time ?? '4/4';
-  const timeline = useMemo(() => buildTimeline(lines), [lines]);
-  const playable = hasPlayable(timeline);
+  const fullTimeline = useMemo(() => buildTimeline(lines), [lines]);
+  const playable = hasPlayable(fullTimeline);
+
+  // 구간 반복: 고른 구간 제목 줄부터 다음 구간 제목 전까지만 반주한다
+  const [loopSection, setLoopSection] = useState<number | null>(null);
+  const sectionRange = (start: number) => {
+    const next = lines.findIndex((l, i) => i > start && l.kind === 'section');
+    return [start, next < 0 ? lines.length : next] as const;
+  };
+  const loopable = useMemo(() => {
+    const set = new Set<number>();
+    lines.forEach((l, i) => {
+      if (l.kind !== 'section') return;
+      const next = lines.findIndex((x, j) => j > i && x.kind === 'section');
+      const end = next < 0 ? lines.length : next;
+      if (fullTimeline.some((b) => b.line > i && b.line < end && b.slots.some((c) => c != null))) set.add(i);
+    });
+    return set;
+  }, [lines, fullTimeline]);
+  const timeline = useMemo(() => {
+    if (loopSection == null) return fullTimeline;
+    const [start, end] = sectionRange(loopSection);
+    const part = fullTimeline.filter((b) => b.line > start && b.line < end);
+    return part.length ? part : fullTimeline;
+  }, [fullTimeline, loopSection, lines]);
 
   // 자동 스크롤
   useEffect(() => {
@@ -282,7 +305,16 @@ export function SongView({
 
       <article className="flex flex-col gap-1 pb-10" style={{ fontSize: TEXT_SIZES[textSize] ?? 16 }}>
         {lines.map((l, i) => (
-          <LineView key={i} line={l} index={i} tx={tx} onChord={tapChord} playingBar={playingBar} />
+          <LineView
+            key={i}
+            line={l}
+            index={i}
+            tx={tx}
+            onChord={tapChord}
+            playingBar={playingBar}
+            looping={loopSection === i}
+            onLoop={loopable.has(i) ? () => setLoopSection((cur) => (cur === i ? null : i)) : undefined}
+          />
         ))}
       </article>
     </div>
@@ -313,12 +345,16 @@ function LineView({
   tx,
   onChord,
   playingBar,
+  looping,
+  onLoop,
 }: {
   line: Line;
   index: number;
   tx: (c: string) => string;
   onChord: (c: string) => void;
   playingBar: TimelineBar | null;
+  looping?: boolean;
+  onLoop?: () => void;
 }) {
   switch (line.kind) {
     case 'empty':
@@ -328,6 +364,19 @@ function LineView({
         <h2 className="mt-4 mb-1 flex items-center gap-2 text-sm font-extrabold tracking-wide text-muted uppercase">
           <span className="h-4 w-1 rounded-full bg-accent" />
           {line.name}
+          {onLoop && (
+            <button
+              type="button"
+              onClick={onLoop}
+              aria-pressed={looping}
+              className={`ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-normal normal-case transition ${
+                looping ? 'bg-accent text-accent-foreground' : 'bg-surface-secondary text-muted hover:text-foreground'
+              }`}
+            >
+              <Repeat className="size-3" />
+              {looping ? '이 구간 반복 중' : '구간 반복'}
+            </button>
+          )}
         </h2>
       );
     case 'note':
