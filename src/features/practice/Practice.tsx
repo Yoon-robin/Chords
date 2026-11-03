@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Label, ListBox, Select, Slider, Switch, ToggleButton, ToggleButtonGroup } from '@heroui/react';
-import { Hand, Minus, Pause, Play, Plus, X } from 'lucide-react';
+import { Hand, Minus, Pause, Play, Plus, TrendingUp, X } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
 import { ChangeTrainer } from './ChangeTrainer';
 import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
@@ -34,6 +34,11 @@ const PRESETS: Record<Mode, { name: string; prog: number[] }[]> = {
 
 type Running = null | 'metro' | 'prog';
 
+// 템포 점점 올리기: every마디마다 step씩, max까지
+type Ramp = { on: boolean; step: number; every: number; max: number };
+const RAMP_STEPS = [2, 5, 10];
+const RAMP_EVERY = [2, 4, 8];
+
 export function Practice() {
   const [bpm, setBpm] = usePersistent('practice.bpm', 90);
   const [beats, setBeats] = usePersistent('practice.beats', 4);
@@ -43,14 +48,28 @@ export function Practice() {
   const [prog, setProg] = usePersistent<number[]>('practice.prog', [0, 4, 5, 3]);
   const [pattern, setPattern] = usePersistent('practice.pattern', 'D-DU-UDU');
   const [withClick, setWithClick] = usePersistent('practice.click', false);
+  const [ramp, setRamp] = usePersistent<Ramp>('practice.ramp', { on: false, step: 5, every: 4, max: 140 });
+  const setRampPart = (r: Partial<Ramp>) => setRamp((p) => ({ ...p, ...r }));
+  const bars = useRef(0);
   const [running, setRunning] = useState<Running>(null);
   const [beat, setBeat] = useState(-1);
   const [bar, setBar] = useState(-1);
   const taps = useRef<number[]>([]);
 
   const chords = diatonic(keyPc, mode, sevenths);
-  const st = useRef({ bpm, beats, prog, chords, pattern, withClick, running });
-  st.current = { bpm, beats, prog, chords, pattern, withClick, running };
+  const st = useRef({ bpm, beats, prog, chords, pattern, withClick, running, ramp });
+  st.current = { bpm, beats, prog, chords, pattern, withClick, running, ramp };
+
+  // 마디 첫 박마다 불러서, 정해 둔 마디 수가 지나면 템포를 올린다
+  const onBar = (step: number) => {
+    if (step === 0) return;
+    bars.current += 1;
+    const { ramp: r, bpm: b } = st.current;
+    if (!r.on || bars.current % r.every || b >= r.max) return;
+    const next = Math.min(r.max, b + r.step);
+    st.current.bpm = next;
+    setBpm(next);
+  };
 
   const loop = useMemo(
     () =>
@@ -61,6 +80,7 @@ export function Practice() {
           if (s.running === 'metro') {
             if (step % 2) return;
             const b = (step / 2) % s.beats;
+            if (b === 0) onBar(step);
             click(time, b === 0);
             at(() => setBeat(b));
             return;
@@ -68,6 +88,7 @@ export function Practice() {
           if (!s.prog.length) return;
           const barIdx = Math.floor(step / 8) % s.prog.length;
           const e = step % 8;
+          if (e === 0) onBar(step);
           const c = s.chords[s.prog[barIdx]];
           const v = voicings(c.pc, c.qid)[0];
           if (e % 2 === 0) {
@@ -104,6 +125,7 @@ export function Practice() {
       return;
     }
     st.current.running = which;
+    bars.current = 0;
     setRunning(which);
     loop.start();
   };
@@ -183,6 +205,82 @@ export function Practice() {
               {running === 'metro' ? <Pause className="size-4" /> : <Play className="size-4" />}
               {running === 'metro' ? '정지' : '시작'}
             </Button>
+          </div>
+
+          <div className="flex w-full max-w-md flex-col gap-3 rounded-xl bg-surface-secondary p-3">
+            <Switch isSelected={ramp.on} onChange={(on) => setRampPart({ on })} size="sm">
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Switch.Content>
+                <Label className="flex items-center gap-1.5">
+                  <TrendingUp className="size-4" />
+                  점점 빠르게
+                </Label>
+              </Switch.Content>
+            </Switch>
+            {ramp.on && (
+              <div className="flex flex-col gap-2.5 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ToggleButtonGroup
+                    selectionMode="single"
+                    disallowEmptySelection
+                    selectedKeys={[String(ramp.every)]}
+                    onSelectionChange={(k) => setRampPart({ every: Number([...k][0]) })}
+                    size="sm"
+                    aria-label="몇 마디마다"
+                  >
+                    {RAMP_EVERY.map((n, i) => (
+                      <ToggleButton key={n} id={String(n)}>
+                        {i > 0 && <ToggleButtonGroup.Separator />}
+                        {n}마디
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                  <span className="whitespace-nowrap text-muted">마다</span>
+                  <ToggleButtonGroup
+                    selectionMode="single"
+                    disallowEmptySelection
+                    selectedKeys={[String(ramp.step)]}
+                    onSelectionChange={(k) => setRampPart({ step: Number([...k][0]) })}
+                    size="sm"
+                    aria-label="올릴 BPM"
+                  >
+                    {RAMP_STEPS.map((n, i) => (
+                      <ToggleButton key={n} id={String(n)}>
+                        {i > 0 && <ToggleButtonGroup.Separator />}+{n}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="whitespace-nowrap text-muted">최대</span>
+                  <span className="flex items-center gap-1">
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="tertiary"
+                      aria-label="최대 템포 낮추기"
+                      onPress={() => setRampPart({ max: Math.max(40, ramp.max - 5) })}
+                    >
+                      <Minus className="size-4" />
+                    </Button>
+                    <span className="w-16 text-center font-bold tabular-nums">♩ {ramp.max}</span>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="tertiary"
+                      aria-label="최대 템포 높이기"
+                      onPress={() => setRampPart({ max: Math.min(220, ramp.max + 5) })}
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  </span>
+                  {bpm >= ramp.max && <span className="text-xs font-semibold whitespace-nowrap text-accent">목표 도달</span>}
+                </div>
+                <p className="text-xs text-muted">메트로놈과 코드 진행 반주 모두에 적용돼요.</p>
+              </div>
+            )}
           </div>
         </Card.Content>
       </Card>
