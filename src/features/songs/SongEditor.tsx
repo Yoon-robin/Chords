@@ -81,7 +81,7 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
               <Modal.Heading>{song.title ? '곡 편집' : '새 곡 추가'}</Modal.Heading>
             </Modal.Header>
             <Modal.Body className="flex flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <TextField value={title} onChange={setTitle} autoFocus>
                   <Label>제목</Label>
                   <Input placeholder="곡 제목" />

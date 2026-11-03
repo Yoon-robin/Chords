@@ -73,9 +73,16 @@ export function ChordLibrary() {
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {/* 휴대폰에서는 한 줄 가로 스크롤로 두어 다이어그램이 첫 화면에 보이게 한다 */}
+      <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {QUALITIES.map((x) => (
-          <button key={x.id} type="button" title={x.name} onClick={() => setQid(x.id)} className={pill(x.id === q.id)}>
+          <button
+            key={x.id}
+            type="button"
+            title={x.name}
+            onClick={() => setQid(x.id)}
+            className={`shrink-0 ${pill(x.id === q.id)}`}
+          >
             {x.sym || 'Major'}
           </button>
         ))}

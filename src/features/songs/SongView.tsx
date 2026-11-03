@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ArrowDownToLine, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
+import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
+import { useWakeLock } from '../../lib/useWakeLock';
 import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
 
 // 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
 const MAX_SHIFT = 11;
+// 악보 글자 크기 (보면대 거리에 맞게 고른다)
+const TEXT_SIZES = [14, 16, 19, 23];
 
 export function SongView({
   song,
@@ -31,6 +35,8 @@ export function SongView({
   const [playing, setPlaying] = useState(false);
   const [currentBar, setCurrentBar] = useState(-1);
   const [bpm, setBpm] = useState(song.bpm ?? 80);
+  const [textSize, setTextSize] = usePersistent('song.textSize', 1);
+  useWakeLock(scrolling || playing);
 
   const lines = useMemo(() => parseBody(song.body), [song.body]);
   const tx = (c: string) => transposeText(c, semis, flats);
@@ -121,7 +127,12 @@ export function SongView({
         <div className="flex-1" />
         <Button variant="tertiary" size="sm" onPress={onEdit}>
           <Pencil className="size-4" />
-          {editable ? '편집' : '내 노래로 복사해 편집'}
+          {editable ? '편집' : (
+            <>
+              <span className="sm:hidden">복사해 편집</span>
+              <span className="hidden sm:inline">내 노래로 복사해 편집</span>
+            </>
+          )}
         </Button>
         {editable && (
           <Button variant="danger-soft" size="sm" isIconOnly aria-label="삭제" onPress={onDelete}>
@@ -156,8 +167,8 @@ export function SongView({
 
       {/* 조옮김 / 스크롤 / 반주 */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-border bg-surface p-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-muted">조옮김</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold whitespace-nowrap text-muted">조옮김</span>
           <Button
             size="sm"
             variant="tertiary"
@@ -182,13 +193,23 @@ export function SongView({
           <button
             type="button"
             onClick={() => setFlats((f) => !f)}
-            className="rounded-lg bg-surface-secondary px-2 py-1 text-xs font-bold text-muted hover:text-foreground"
+            className="rounded-lg bg-surface-secondary px-2 py-1 text-xs font-bold whitespace-nowrap text-muted hover:text-foreground"
           >
             {flats ? '♭ 표기' : '♯ 표기'}
           </button>
         </div>
 
-        <div className="flex min-w-[220px] flex-1 items-center gap-2">
+        <Button
+          size="sm"
+          variant="tertiary"
+          aria-label={`글자 크기 ${textSize + 1}/${TEXT_SIZES.length}`}
+          onPress={() => setTextSize((t) => (t + 1) % TEXT_SIZES.length)}
+        >
+          <ALargeSmall className="size-4" />
+          <span className="tabular-nums">{textSize + 1}</span>
+        </Button>
+
+        <div className="flex min-w-[200px] flex-1 items-center gap-2">
           <Button
             size="sm"
             variant={scrolling ? 'primary' : 'tertiary'}
@@ -224,7 +245,7 @@ export function SongView({
         )}
       </div>
 
-      <article className="flex flex-col gap-1 pb-10">
+      <article className="flex flex-col gap-1 pb-10" style={{ fontSize: TEXT_SIZES[textSize] ?? 16 }}>
         {lines.map((l, i) => (
           <LineView key={i} line={l} index={i} tx={tx} onChord={tapChord} playingBar={playingBar} />
         ))}
@@ -264,7 +285,7 @@ function LineView({
 }) {
   switch (line.kind) {
     case 'empty':
-      return <div className="h-3" />;
+      return <div className="h-[0.75em]" />;
     case 'section':
       return (
         <h2 className="mt-4 mb-1 flex items-center gap-2 text-sm font-extrabold tracking-wide text-muted uppercase">
@@ -273,10 +294,10 @@ function LineView({
         </h2>
       );
     case 'note':
-      return <p className="text-sm text-muted italic">{line.text}</p>;
+      return <p className="text-[0.875em] text-muted italic">{line.text}</p>;
     case 'tab':
       return (
-        <pre className="my-1 overflow-x-auto rounded-xl border border-border bg-surface px-3 py-2 font-mono text-[13px] leading-snug text-foreground/90">
+        <pre className="my-1 overflow-x-auto rounded-xl border border-border bg-surface px-3 py-2 font-mono text-[0.8em] leading-snug text-foreground/90">
           {line.lines.join('\n')}
         </pre>
       );
@@ -288,7 +309,7 @@ function LineView({
             return (
               <div
                 key={bi}
-                className={`flex min-h-12 items-center justify-around gap-1 rounded-xl border px-2 text-lg transition ${
+                className={`flex min-h-[2.75em] items-center justify-around gap-1 rounded-xl border px-2 text-[1.125em] transition ${
                   active ? 'border-accent bg-accent/15' : 'border-border bg-surface'
                 }`}
               >
@@ -308,12 +329,12 @@ function LineView({
       );
     case 'lyric': {
       const hasChord = line.segments.some((s) => s.chord);
-      if (!hasChord) return <p className="text-lg leading-relaxed whitespace-pre-wrap">{line.segments.map((s) => s.text).join('')}</p>;
+      if (!hasChord) return <p className="text-[1.125em] leading-relaxed whitespace-pre-wrap">{line.segments.map((s) => s.text).join('')}</p>;
       return (
-        <div className="flex flex-wrap items-end text-lg leading-tight">
+        <div className="flex flex-wrap items-end text-[1.125em] leading-tight">
           {line.segments.map((s, i) => (
             <span key={i} className="inline-flex flex-col">
-              <span className="h-6 pr-1 text-base">{s.chord ? <ChordButton chord={tx(s.chord)} onChord={onChord} /> : ' '}</span>
+              <span className="h-[1.5em] pr-1 text-[0.9em]">{s.chord ? <ChordButton chord={tx(s.chord)} onChord={onChord} /> : ' '}</span>
               <span className="whitespace-pre">{s.text || ' '}</span>
             </span>
           ))}

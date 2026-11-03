@@ -126,7 +126,7 @@ export function Songbook() {
           <p>{filter === 'mine' ? '아직 추가한 곡이 없어요. 코드 악보를 붙여넣어 곡을 추가해 보세요.' : '검색 결과가 없어요.'}</p>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {list.map((s) => {
             const chords = songChords(parseBody(s.body));
             return (
@@ -165,6 +165,7 @@ export function Songbook() {
                   <div className="flex gap-3 text-xs text-muted">
                     {s.capo ? <span>카포 {s.capo}</span> : null}
                     {s.bpm ? <span>♩ {s.bpm}</span> : null}
+                    {s.time && s.time !== '4/4' ? <span>{s.time}</span> : null}
                     <span>{s.hasLyrics ? '가사 + 코드' : '코드 진행만'}</span>
                   </div>
                 </button>

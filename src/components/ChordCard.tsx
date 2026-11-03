@@ -148,7 +148,7 @@ export function VoicingCard({
         )}
       </div>
       <ChordDiagram voicing={voicing} tones={tones} labels={labels} title={name} className="mx-auto max-w-[150px]" />
-      <div className="mt-1 flex items-center justify-between">
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
         <code className="text-xs tracking-wider text-muted">{voicing.code}</code>
         <button
           type="button"
@@ -157,7 +157,7 @@ export function VoicingCard({
             arpeggio(voicing.frets, {});
             flash(ref.current);
           }}
-          className="rounded-lg bg-surface-secondary px-2 py-1 text-xs font-semibold text-muted hover:text-accent"
+          className="rounded-lg bg-surface-secondary px-2 py-1 text-xs font-semibold whitespace-nowrap text-muted hover:text-accent"
         >
           아르페지오
         </button>

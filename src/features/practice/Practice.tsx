@@ -261,7 +261,7 @@ export function Practice() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <Select
               value={presetIdx >= 0 ? String(presetIdx) : 'custom'}
               onChange={(k) => k != null && k !== 'custom' && setProg([...PRESETS[mode][Number(k)].prog])}
