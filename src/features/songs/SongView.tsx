@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
 import { ArrowDownToLine, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
-import { createLoop, now, strum } from '../../lib/audio';
+import { createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, songChords, transposeText, type Line, type Song } from '../../lib/songs';
 import { pretty } from '../../lib/theory';
+import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
 
-type BarRef = { line: number; bar: number; chords: string[] };
+// 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
+const MAX_SHIFT = 11;
 
 export function SongView({
   song,
@@ -34,13 +36,10 @@ export function SongView({
   const tx = (c: string) => transposeText(c, semis, flats);
   const chords = songChords(lines).map(tx);
 
-  const bars = useMemo(() => {
-    const out: BarRef[] = [];
-    lines.forEach((l, li) => {
-      if (l.kind === 'bars') l.bars.forEach((b, bi) => out.push({ line: li, bar: bi, chords: b.filter((c) => resolveChord(c)) }));
-    });
-    return out.filter((b) => b.chords.length);
-  }, [lines]);
+  const capo = song.capo ?? 0;
+  const time = song.time ?? '4/4';
+  const timeline = useMemo(() => buildTimeline(lines), [lines]);
+  const playable = hasPlayable(timeline);
 
   // 자동 스크롤
   useEffect(() => {
@@ -62,23 +61,33 @@ export function SongView({
     return () => cancelAnimationFrame(raf);
   }, [scrolling, speed]);
 
-  // 반주 재생: 마디마다 4박 다운 스트럼
-  const state = useRef({ bpm, bars, semis, flats });
-  state.current = { bpm, bars, semis, flats };
+  // 반주 재생: 박자표에 맞는 스트럼 패턴, 쉬는 마디(N.C.)는 소리 없이 지나간다
+  const state = useRef({ bpm, timeline, semis, flats, capo, time });
+  state.current = { bpm, timeline, semis, flats, capo, time };
   const loop = useMemo(
     () =>
       createLoop(
-        () => state.current.bpm,
-        (step, time) => {
-          const { bars: bs, semis: s, flats: f } = state.current;
-          if (!bs.length || step % 2) return;
-          const barIdx = Math.floor(step / 8) % bs.length;
-          const beat = (step % 8) / 2;
-          const b = bs[barIdx];
-          const chord = b.chords[Math.min(b.chords.length - 1, Math.floor((beat * b.chords.length) / 4))];
+        () => stepSeconds(state.current.bpm, state.current.time),
+        (step, when, at) => {
+          const { timeline: tl, semis: s, flats: f, capo: cp, time: ts } = state.current;
+          if (!tl.length) return;
+          const meter = METERS[ts];
+          const barIdx = Math.floor(step / meter.steps) % tl.length;
+          const e = step % meter.steps;
+          if (e === 0) at(() => setCurrentBar(barIdx));
+          const bar = tl[barIdx];
+          const { index, chord } = slotAt(bar, e, meter.steps);
+          const slotStart = slotAt(bar, Math.max(0, e - 1), meter.steps).index !== index || e === 0;
+          if (chord == null) {
+            if (slotStart) damp(when);
+            return;
+          }
           const r = resolveChord(transposeText(chord, s, f));
-          if (r) strum(r.voicing.frets, { when: time, vel: beat === 0 ? 1 : 0.7, spread: 0.02 });
-          if (beat === 0) setTimeout(() => setCurrentBar(barIdx), Math.max(0, (time - now()) * 1000));
+          if (!r) return;
+          // 코드가 바뀌는 칸은 패턴과 상관없이 다운으로 시작
+          const p = slotStart ? 'D' : meter.pattern[e];
+          if (p === 'D') strum(r.voicing.frets, { when, vel: e === 0 ? 1 : 0.72, spread: 0.02, transpose: cp });
+          else if (p === 'U') strum(r.voicing.frets, { when, dir: 'up', vel: 0.5, spread: 0.014, transpose: cp });
         },
       ),
     [],
@@ -93,13 +102,14 @@ export function SongView({
   };
 
   const tapChord = (c: string) => {
-    playChordName(c);
+    playChordName(c, capo);
     setSelected(c);
     document.getElementById(`strip-${c}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   };
 
   const keyLabel = song.key ? pretty(transposeText(song.key, semis, flats)) : null;
-  const playingBar = playing && currentBar >= 0 ? bars[currentBar] : null;
+  const playingBar = playing && currentBar >= 0 ? (timeline[currentBar] ?? null) : null;
+  const shiftSemis = (d: number) => setSemis((s) => Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, s + d)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,6 +137,7 @@ export function SongView({
           {keyLabel && <Chip size="sm" color="accent" variant="soft">키 {keyLabel}</Chip>}
           {song.capo ? <Chip size="sm">카포 {song.capo}</Chip> : null}
           {song.bpm ? <Chip size="sm">♩ {song.bpm}</Chip> : null}
+          {time !== '4/4' && <Chip size="sm">{time}</Chip>}
           {song.strum && <Chip size="sm">{song.strum}</Chip>}
           {!song.hasLyrics && <Chip size="sm" variant="tertiary">코드 진행만</Chip>}
         </div>
@@ -137,7 +148,7 @@ export function SongView({
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
           {chords.map((c) => (
             <div key={c} id={`strip-${c}`} className="w-[92px] shrink-0">
-              <MiniChord name={c} active={selected === c || playingBarHas(playingBar, c, tx)} className="w-full" />
+              <MiniChord name={c} transpose={capo} active={selected === c || playingBarHas(playingBar, c, tx)} className="w-full" />
             </div>
           ))}
         </div>
@@ -147,11 +158,25 @@ export function SongView({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-muted">조옮김</span>
-          <Button size="sm" variant="tertiary" isIconOnly aria-label="반음 내리기" onPress={() => setSemis((s) => s - 1)}>
+          <Button
+            size="sm"
+            variant="tertiary"
+            isIconOnly
+            aria-label="반음 내리기"
+            isDisabled={semis <= -MAX_SHIFT}
+            onPress={() => shiftSemis(-1)}
+          >
             <Minus className="size-4" />
           </Button>
           <span className="w-8 text-center font-bold tabular-nums">{semis > 0 ? `+${semis}` : semis}</span>
-          <Button size="sm" variant="tertiary" isIconOnly aria-label="반음 올리기" onPress={() => setSemis((s) => s + 1)}>
+          <Button
+            size="sm"
+            variant="tertiary"
+            isIconOnly
+            aria-label="반음 올리기"
+            isDisabled={semis >= MAX_SHIFT}
+            onPress={() => shiftSemis(1)}
+          >
             <Plus className="size-4" />
           </Button>
           <button
@@ -181,7 +206,7 @@ export function SongView({
           </Slider>
         </div>
 
-        {bars.length > 0 && (
+        {playable && (
           <div className="flex min-w-[220px] flex-1 items-center gap-2">
             <Button size="sm" variant={playing ? 'secondary' : 'primary'} onPress={togglePlay}>
               {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
@@ -208,8 +233,8 @@ export function SongView({
   );
 }
 
-function playingBarHas(bar: BarRef | null, chord: string, tx: (c: string) => string) {
-  return !!bar && bar.chords.some((c) => tx(c) === chord);
+function playingBarHas(bar: TimelineBar | null, chord: string, tx: (c: string) => string) {
+  return !!bar && bar.slots.some((c) => c != null && tx(c) === chord);
 }
 
 function ChordButton({ chord, onChord }: { chord: string; onChord: (c: string) => void }) {
@@ -235,7 +260,7 @@ function LineView({
   index: number;
   tx: (c: string) => string;
   onChord: (c: string) => void;
-  playingBar: BarRef | null;
+  playingBar: TimelineBar | null;
 }) {
   switch (line.kind) {
     case 'empty':

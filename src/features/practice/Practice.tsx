@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Label, ListBox, Select, Slider, Switch, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { Hand, Minus, Pause, Play, Plus, X } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
-import { click, createLoop, damp, now, pluck, strum } from '../../lib/audio';
+import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { usePersistent } from '../../lib/storage';
-import { diatonic, pretty, SCALES, TUNING, voicings, type Mode } from '../../lib/theory';
+import { arpString, diatonic, pretty, SCALES, TUNING, voicings, type Mode } from '../../lib/theory';
 
 const PATTERNS = [
   { id: 'D-D-D-D-', name: '다운 4비트' },
@@ -54,10 +54,9 @@ export function Practice() {
   const loop = useMemo(
     () =>
       createLoop(
-        () => st.current.bpm,
-        (step, time) => {
+        () => 60 / st.current.bpm / 2,
+        (step, time, at) => {
           const s = st.current;
-          const at = (fn: () => void) => setTimeout(fn, Math.max(0, (time - now()) * 1000));
           if (s.running === 'metro') {
             if (step % 2) return;
             const b = (step / 2) % s.beats;
@@ -80,12 +79,9 @@ export function Practice() {
           }
           if (!v) return;
           if (s.pattern === 'arp') {
-            const sounding = v.frets.map((f, i) => (f == null ? -1 : i)).filter((i) => i >= 0);
-            const order = [sounding[0], 3, 4, 5, 4, 3, 4, 3];
-            const str = order[e];
             if (e === 0) damp(time);
-            const f = v.frets[str];
-            if (f != null) pluck(TUNING[str] + f, time, e === 0 ? 0.95 : 0.7);
+            const str = arpString(v.frets, e);
+            if (str != null) pluck(TUNING[str] + v.frets[str]!, time, e === 0 ? 0.95 : 0.7);
             return;
           }
           const p = s.pattern[e];

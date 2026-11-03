@@ -5,6 +5,9 @@
 //   [G]Amazing [C]grace → 가사 위 코드
 import { isChordToken, parseSongChord, transposeChord } from './theory';
 
+export type TimeSig = '4/4' | '3/4' | '6/8';
+export const TIME_SIGS: TimeSig[] = ['4/4', '3/4', '6/8'];
+
 export type Song = {
   id: string;
   title: string;
@@ -12,6 +15,7 @@ export type Song = {
   key?: string;
   capo?: number;
   bpm?: number;
+  time?: TimeSig;
   strum?: string;
   tags?: string[];
   builtin?: boolean;
@@ -121,6 +125,7 @@ const CAPO_RE = /^\s*(?:capo|카포)\s*[:-]?\s*(?:on\s*)?(\d+)/i;
 const NO_CAPO_RE = /^\s*(?:capo|카포)\s*[:-]?\s*(?:no|none|없음|0\b)/i;
 const KEY_RE = /^\s*(?:key|키)\s*[:-]\s*([A-G][#b]?m?)\b/i;
 const BPM_RE = /^\s*(?:bpm|tempo|템포)\s*[:-]?\s*(\d{2,3})\b/i;
+const TIME_RE = /^\s*(?:time(?:\s*signature)?|meter|박자)\s*[:-]?\s*(4\/4|3\/4|6\/8)\s*$/i;
 const TUNING_RE = /^\s*(?:tuning|튜닝)\s*[:-]\s*(.+)$/i;
 const DROP_RE = /^\s*(?:difficulty|author|chords|strumming|난이도|작성자)\s*:/i;
 
@@ -128,6 +133,10 @@ function isChordLine(line: string) {
   const tokens = line.replace(/\|/g, ' ').split(/\s+/).filter(Boolean);
   return tokens.length > 0 && tokens.some(isChordToken) && tokens.every((t) => isChordToken(t) || BAR_FILLERS.has(t) || isRepeatMark(t));
 }
+
+// "A" 한 단어만 있는 줄은 코드인지 영어 가사(관사 A)인지 모호하다.
+// 바로 위가 코드 줄이면 그 아래 가사로 본다.
+const isLoneA = (line: string) => /^\s*A\s*$/.test(line);
 
 function mergeChordsIntoLyric(chordLine: string, lyric: string) {
   const marks: { pos: number; chord: string }[] = [];
@@ -161,7 +170,7 @@ function chordLineToBars(line: string) {
   return rep ? [bars, '> ' + rep.replace(/[()]/g, '')] : [bars];
 }
 
-export type ImportResult = { body: string; capo?: number; key?: string; bpm?: number };
+export type ImportResult = { body: string; capo?: number; key?: string; bpm?: number; time?: TimeSig };
 
 export function importText(text: string): ImportResult {
   // 사이트 원본 마크업([ch]G[/ch], [tab]…[/tab])이 섞여 들어와도 처리
@@ -173,7 +182,12 @@ export function importText(text: string): ImportResult {
   const out: string[] = [];
   const meta: Omit<ImportResult, 'body'> = {};
   const isLyricCandidate = (l: string) =>
-    !!l.trim() && !isChordLine(l) && !isTabLine(l) && !SECTION_RE.test(l) && !BRACKET_RE.test(l) && !l.includes('[');
+    !!l.trim() &&
+    (isLoneA(l) || !isChordLine(l)) &&
+    !isTabLine(l) &&
+    !SECTION_RE.test(l) &&
+    !BRACKET_RE.test(l) &&
+    !l.includes('[');
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i].replace(/\s+$/, '');
@@ -198,6 +212,11 @@ export function importText(text: string): ImportResult {
     const bpm = BPM_RE.exec(line);
     if (bpm) {
       meta.bpm = Number(bpm[1]);
+      continue;
+    }
+    const time = TIME_RE.exec(line);
+    if (time) {
+      meta.time = time[1] as TimeSig;
       continue;
     }
     const tuning = TUNING_RE.exec(line);

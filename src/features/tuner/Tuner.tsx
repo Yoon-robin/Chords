@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Description, Label, ListBox, Select, Slider, Switch } from '@heroui/react';
 import { Check, Mic, MicOff, Volume2 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -75,7 +75,6 @@ export function Tuner() {
   const [a4, setA4] = usePersistent('tuner.a4', 440);
   const [manual, setManual] = useState(0);
   const [tuned, setTuned] = useState<Set<number>>(new Set());
-  const holdSince = useRef<number | null>(null);
 
   const tuning = TUNINGS.find((t) => t.id === tuningId) ?? TUNINGS[0];
   const listening = status === 'listening';
@@ -101,18 +100,12 @@ export function Tuner() {
     if (auto && freq) setManual(target);
   }, [auto, freq, target]);
 
-  // 0.6초 동안 맞춰져 있으면 그 줄은 완료 표시
+  // 0.6초 동안 계속 맞춰져 있으면 그 줄은 완료 표시 (중간에 벗어나면 타이머 초기화)
   useEffect(() => {
-    if (!inTune) {
-      holdSince.current = null;
-      return;
-    }
-    const t = performance.now();
-    if (holdSince.current == null) holdSince.current = t;
-    else if (t - holdSince.current > 600 && !tuned.has(target)) {
-      setTuned((s) => new Set(s).add(target));
-    }
-  }, [inTune, freq, target, tuned]);
+    if (!inTune) return;
+    const id = setTimeout(() => setTuned((s) => (s.has(target) ? s : new Set(s).add(target))), 600);
+    return () => clearTimeout(id);
+  }, [inTune, target]);
 
   useEffect(() => setTuned(new Set()), [tuningId]);
 

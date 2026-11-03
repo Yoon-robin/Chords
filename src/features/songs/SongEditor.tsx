@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Button, Description, Input, Label, Modal, TextArea, TextField } from '@heroui/react';
+import { Button, Description, Input, Label, Modal, TextArea, TextField, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { Sparkles } from 'lucide-react';
-import { importText, parseBody, songChords, type Song } from '../../lib/songs';
+import { importText, parseBody, songChords, TIME_SIGS, type Song, type TimeSig } from '../../lib/songs';
 import { pretty } from '../../lib/theory';
 
 const PLACEHOLDER = `코드 사이트에서 복사한 악보를 그대로 붙여넣어 보세요.
@@ -24,6 +24,7 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
   const [key, setKey] = useState(song.key ?? '');
   const [capo, setCapo] = useState(song.capo ? String(song.capo) : '');
   const [bpm, setBpm] = useState(song.bpm ? String(song.bpm) : '');
+  const [time, setTime] = useState<TimeSig>(song.time ?? '4/4');
   const [body, setBody] = useState(song.body);
 
   const lines = useMemo(() => parseBody(body), [body]);
@@ -47,6 +48,10 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
       setBpm(String(r.bpm));
       filled.push(`템포 ${r.bpm}`);
     }
+    if (r.time && time === '4/4') {
+      setTime(r.time);
+      filled.push(`박자 ${r.time}`);
+    }
     setNotice(filled.length ? `변환 완료 · ${filled.join(', ')} 자동 입력` : '변환 완료');
   };
 
@@ -57,8 +62,9 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
       title: title.trim() || '제목 없음',
       artist: artist.trim(),
       key: key.trim() || undefined,
-      capo: Number(capo) || undefined,
+      capo: Math.min(12, Math.max(0, Math.round(Number(capo)))) || undefined,
       bpm: Number(bpm) || undefined,
+      time: time === '4/4' ? undefined : time,
       body,
       hasLyrics,
       builtin: false,
@@ -98,6 +104,25 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
                   <Label>템포 (BPM)</Label>
                   <Input placeholder="90" />
                 </TextField>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium">박자</span>
+                <ToggleButtonGroup
+                  selectionMode="single"
+                  disallowEmptySelection
+                  selectedKeys={[time]}
+                  onSelectionChange={(k) => setTime([...k][0] as TimeSig)}
+                  size="sm"
+                  aria-label="박자"
+                >
+                  {TIME_SIGS.map((t, i) => (
+                    <ToggleButton key={t} id={t}>
+                      {i > 0 && <ToggleButtonGroup.Separator />}
+                      {t}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <span className="text-xs text-muted">6/8은 점4분음표 한 박을 BPM으로 셉니다</span>
               </div>
 
               <TextField value={body} onChange={setBody}>

@@ -1,11 +1,11 @@
 // Karplus-Strong 방식 어쿠스틱 기타 소리 + 메트로놈 클릭
-import { TUNING, type Fret } from './theory';
+import { fretsToMidi, type Fret } from './theory';
 
 let ctx: AudioContext | null = null;
 let input: AudioNode | null = null;
 let clickOut: AudioNode | null = null;
 const cache = new Map<number, AudioBuffer>();
-type Voice = { src: AudioBufferSourceNode; g: GainNode; start: number };
+type Voice = { src: AudioScheduledSourceNode; g: GainNode; start: number };
 let voices: Voice[] = [];
 
 export function ensureAudio() {
@@ -40,6 +40,10 @@ export function ensureAudio() {
 }
 
 export const now = () => (ctx ? ctx.currentTime : 0);
+
+// 기타 음역(E2~약 E6) 밖의 버퍼는 만들지 않는다
+const MIN_MIDI = 36;
+const MAX_MIDI = 90;
 
 function buffer(midi: number) {
   const hit = cache.get(midi);
@@ -82,7 +86,16 @@ function buffer(midi: number) {
   return buf;
 }
 
+function track(src: AudioScheduledSourceNode, g: GainNode, start: number) {
+  const v = { src, g, start };
+  voices.push(v);
+  src.onended = () => {
+    voices = voices.filter((x) => x !== v);
+  };
+}
+
 export function pluck(midi: number, when?: number, vel = 0.8) {
+  if (midi < MIN_MIDI || midi > MAX_MIDI) return;
   const c = ensureAudio();
   const t = when ?? c.currentTime + 0.01;
   const src = c.createBufferSource();
@@ -91,14 +104,10 @@ export function pluck(midi: number, when?: number, vel = 0.8) {
   g.gain.value = 0.2 * vel;
   src.connect(g).connect(input!);
   src.start(t);
-  const v = { src, g, start: t };
-  voices.push(v);
-  src.onended = () => {
-    voices = voices.filter((x) => x !== v);
-  };
+  track(src, g, t);
 }
 
-// 새 스트럼 직전에 이전 소리를 손으로 뮤트하듯 줄인다
+// 새 스트럼 직전에 이전 소리를 손으로 뮤트하듯 줄인다 (when 이후에 시작할 음은 건드리지 않음)
 export function damp(when?: number) {
   if (!ctx) return;
   const t = when ?? ctx.currentTime;
@@ -113,31 +122,49 @@ export function damp(when?: number) {
   }
 }
 
-type StrumOpts = { when?: number; dir?: 'down' | 'up'; spread?: number; vel?: number };
+// 정지 버튼: 울리는 소리는 짧게 줄이고, 아직 시작하지 않은 예약 음은 취소한다
+export function stopAll() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (const v of voices) {
+    try {
+      if (v.start > t) {
+        v.src.stop();
+      } else {
+        v.g.gain.setTargetAtTime(0, t, 0.035);
+        v.src.stop(t + 0.4);
+      }
+    } catch {
+      /* 이미 멈춘 소리 */
+    }
+  }
+}
+
+// transpose: 카포 등으로 실제 울리는 음을 올릴 반음 수
+type StrumOpts = { when?: number; dir?: 'down' | 'up'; spread?: number; vel?: number; transpose?: number };
 
 export function strum(frets: Fret[], opts: StrumOpts = {}) {
   const c = ensureAudio();
   const t = opts.when ?? c.currentTime + 0.02;
   const spread = opts.spread ?? 0.024;
   const vel = opts.vel ?? 0.9;
-  let strings = frets.map((f, i) => (f == null ? -1 : i)).filter((i) => i >= 0);
+  const midi = fretsToMidi(frets, opts.transpose);
+  let strings = midi.map((m, i) => (m == null ? -1 : i)).filter((i) => i >= 0);
   if (opts.dir === 'up') strings = strings.filter((i) => i >= 2).reverse();
   damp(t);
   strings.forEach((i, k) => {
     const jitter = (Math.random() - 0.5) * 0.004;
-    pluck(TUNING[i] + (frets[i] as number), t + k * spread + jitter, vel * (1 - k * 0.04));
+    pluck(midi[i]!, t + k * spread + jitter, vel * (1 - k * 0.04));
   });
 }
 
-export function arpeggio(frets: Fret[], step = 0.16) {
+export function arpeggio(frets: Fret[], { step = 0.16, transpose = 0 } = {}) {
   const c = ensureAudio();
   const t = c.currentTime + 0.02;
   damp(t);
-  frets.forEach((f, i) => {
-    if (f == null) return;
-    const k = frets.slice(0, i).filter((x) => x != null).length;
-    pluck(TUNING[i] + f, t + k * step, 0.75);
-  });
+  fretsToMidi(frets, transpose)
+    .filter((m): m is number => m != null)
+    .forEach((m, k) => pluck(m, t + k * step, 0.75));
 }
 
 // 메트로놈: 짧은 우드블록 느낌의 클릭
@@ -153,25 +180,41 @@ export function click(when: number, accent: boolean) {
   osc.connect(g).connect(clickOut!);
   osc.start(when);
   osc.stop(when + 0.08);
+  track(osc, g, when);
 }
 
-// 8분음표 단위 스케줄러 (setTimeout + 오디오 시계로 정확한 박자)
-export function createLoop(getBpm: () => number, onEighth: (step: number, time: number) => void) {
+// 박자 스케줄러. 오디오 시계로 조금 앞서 예약하고,
+// 화면 갱신(at)도 같이 관리해서 정지하면 예약된 것까지 모두 취소한다.
+export type LoopTick = (step: number, time: number, at: (fn: () => void) => void) => void;
+
+export function createLoop(getStepSeconds: () => number, onStep: LoopTick) {
   let timer = 0;
   let step = 0;
   let next = 0;
   let running = false;
+  let uiTimers: number[] = [];
+
   const tick = () => {
-    const eighth = 60 / getBpm() / 2;
+    if (!running) return;
     while (next < now() + 0.15) {
-      onEighth(step, next);
-      next += eighth;
+      const time = next;
+      const at = (fn: () => void) => {
+        const id = window.setTimeout(() => {
+          uiTimers = uiTimers.filter((x) => x !== id);
+          if (running) fn();
+        }, Math.max(0, (time - now()) * 1000));
+        uiTimers.push(id);
+      };
+      onStep(step, time, at);
+      next += getStepSeconds();
       step++;
     }
     timer = window.setTimeout(tick, 25);
   };
+
   return {
     start() {
+      if (running) return;
       ensureAudio();
       running = true;
       step = 0;
@@ -181,7 +224,9 @@ export function createLoop(getBpm: () => number, onEighth: (step: number, time: 
     stop() {
       running = false;
       clearTimeout(timer);
-      damp();
+      uiTimers.forEach(clearTimeout);
+      uiTimers = [];
+      stopAll();
     },
     get running() {
       return running;

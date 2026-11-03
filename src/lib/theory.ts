@@ -125,10 +125,11 @@ export type SongChord = {
 };
 
 export function parseSongChord(token: string): SongChord | null {
-  const m = /^([A-G])([#b]?)([^/\s]*)(?:\/([A-G][#b]?))?$/.exec(normalize(token));
+  // 6/9는 분수 코드가 아니라 코드 종류 이름이므로 / 를 먼저 감춘다
+  const m = /^([A-G])([#b]?)([^/\s]*)(?:\/([A-G][#b]?))?$/.exec(normalize(token).replace(/6\/9/g, '6~9'));
   if (!m) return null;
   const rootName = m[1] + m[2];
-  const rest = m[3];
+  const rest = m[3].replace(/6~9/g, '6/9');
   let qid: string | undefined = rest in ALIASES ? ALIASES[rest] : ALIASES[rest.toLowerCase()];
   let approx = false;
   if (qid === undefined) {
@@ -158,11 +159,13 @@ export function parseSongChord(token: string): SongChord | null {
 
 export const isChordToken = (t: string) => parseSongChord(t) !== null;
 
+export const mod12 = (n: number) => ((n % 12) + 12) % 12;
+
 export function transposeChord(c: SongChord, semis: number, flats = false) {
   if (!semis) return c.text;
   const names = flats ? FLAT_ROOTS : ROOTS;
-  const root = names[(c.pc + semis + 120) % 12];
-  const bass = c.bass ? '/' + names[(c.bass.pc + semis + 120) % 12] : '';
+  const root = names[mod12(c.pc + semis)];
+  const bass = c.bass ? '/' + names[mod12(c.bass.pc + semis)] : '';
   return root + c.rest + bass;
 }
 
@@ -287,6 +290,61 @@ export function voicings(pc: number, qid: string): Voicing[] {
   voicingCache.set(cacheKey, out);
   return out;
 }
+
+// 분수 코드(D/F#, G/B, C/G …): 기본 보이싱의 아래쪽 줄을 베이스음으로 바꿔서 만든다
+export function slashVoicings(pc: number, qid: string, bassPc: number): Voicing[] {
+  const q = QMAP[qid];
+  const tones = new Set([...q.iv.map((i) => (pc + i) % 12), bassPc]);
+  const essential = (q.iv.length > 3 ? q.iv.filter((i) => i !== 7) : q.iv).filter((i) => (pc + i) % 12 !== bassPc);
+  const out: Voicing[] = [];
+  const seen = new Set<string>();
+
+  for (const base of voicings(pc, qid)) {
+    const fr = fretted(base.frets);
+    const isOpen = base.frets.includes(0) && Math.max(...sounding(base.frets)) <= 4;
+    for (let s = 0; s < 4; s++) {
+      // 이 줄에서 베이스음을 낼 수 있는 프렛 중 손 모양 안에 들어오는 것
+      for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((x) => mod12(TUNING[s] + x) === bassPc)) {
+        const fits =
+          f === 0
+            ? isOpen || !fr.length
+            : (fr.length ? Math.max(...fr, f) - Math.min(...fr, f) <= 4 : f <= 4) && !(isOpen && f > 4);
+        if (!fits) continue;
+        const frets = base.frets.map((x, i) => (i < s ? null : i === s ? f : x));
+        const notes = frets
+          .map((x, i) => (x == null ? null : mod12(TUNING[i] + x)))
+          .filter((x): x is number => x != null);
+        if (notes.length < 3 || notes[0] !== bassPc) continue;
+        if (notes.some((n) => !tones.has(n))) continue;
+        if (essential.some((i) => !notes.includes((pc + i) % 12))) continue;
+        const key = frets.join(',');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ ...base, frets, code: fretsToString(frets), position: isOpen ? '오픈' : `${minFret(frets)}프렛` });
+      }
+    }
+  }
+  return out;
+}
+
+// 운지 → 실제 울리는 MIDI 음 (카포·조옮김 반음 수를 더할 수 있음)
+export const fretsToMidi = (frets: Fret[], transpose = 0) =>
+  frets.map((f, i) => (f == null ? null : TUNING[i] + f + transpose));
+
+// 베이스음 기준 음정 이름 (분수 코드의 코드 밖 베이스음 표시에 사용)
+// 8분음표 아르페지오: 1박은 베이스, 나머지는 소리 나는 높은 줄 세 개를 오르내린다
+// (뮤트된 줄은 건너뛰므로 D나 C 코드에서도 빈 박이 생기지 않음)
+const ARP_ORDER = [0, 1, 2, 1, 0, 1, 0];
+export function arpString(frets: Fret[], step: number): number | null {
+  const sounding = frets.map((f, i) => (f == null ? -1 : i)).filter((i) => i >= 0);
+  if (!sounding.length) return null;
+  if (step % 8 === 0) return sounding[0];
+  const upper = sounding.slice(1).slice(-3);
+  if (!upper.length) return sounding[0];
+  return upper[Math.min(upper.length - 1, ARP_ORDER[(step % 8) - 1])];
+}
+
+export const INTERVAL_LABELS =['R', '♭9', '9', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'];
 
 // ---------- 키 / 다이아토닉
 

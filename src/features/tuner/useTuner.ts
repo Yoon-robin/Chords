@@ -1,22 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { detectPitch } from '../../lib/pitch';
+import { createPitchTracker } from '../../lib/pitchTracker';
 
 export type TunerStatus = 'idle' | 'starting' | 'listening' | 'denied' | 'unsupported';
+
+type Session = { ctx: AudioContext; stream: MediaStream; raf: number };
+
+function release(s: { ctx?: AudioContext; stream?: MediaStream; raf?: number }) {
+  if (s.raf) cancelAnimationFrame(s.raf);
+  s.stream?.getTracks().forEach((t) => t.stop());
+  if (s.ctx && s.ctx.state !== 'closed') void s.ctx.close();
+}
 
 // 마이크 입력을 받아 실시간으로 주파수를 알려준다
 export function useTuner() {
   const [status, setStatus] = useState<TunerStatus>('idle');
   const [freq, setFreq] = useState<number | null>(null);
   const [level, setLevel] = useState(0);
-  const res = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
+  const session = useRef<Session | null>(null);
+  // start()가 권한을 기다리는 사이 stop()이나 화면 이동이 있었는지 알아내는 세대 번호
+  const generation = useRef(0);
 
   const stop = useCallback(() => {
-    const r = res.current;
-    if (!r) return;
-    cancelAnimationFrame(r.raf);
-    r.stream.getTracks().forEach((t) => t.stop());
-    void r.ctx.close();
-    res.current = null;
+    generation.current++;
+    if (session.current) release(session.current);
+    session.current = null;
     setStatus('idle');
     setFreq(null);
     setLevel(0);
@@ -27,49 +35,48 @@ export function useTuner() {
       setStatus('unsupported');
       return;
     }
+    const gen = ++generation.current;
+    if (session.current) release(session.current);
+    session.current = null;
     setStatus('starting');
+
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
-      const ctx = new AudioContext();
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 4096;
-      src.connect(analyser);
-      const buf = new Float32Array(analyser.fftSize);
-      const history: number[] = [];
-      let silent = 0;
-      let frame = 0;
-
-      const loop = () => {
-        res.current!.raf = requestAnimationFrame(loop);
-        if (frame++ % 2) return; // 약 30fps로 분석
-        analyser.getFloatTimeDomainData(buf);
-        let peak = 0;
-        for (let i = 0; i < buf.length; i += 8) peak = Math.max(peak, Math.abs(buf[i]));
-        setLevel(Math.min(1, peak * 3));
-
-        const f = detectPitch(buf, ctx.sampleRate);
-        if (f) {
-          silent = 0;
-          // 옥타브 튐 방지: 직전 값과 거의 2배/절반이면 버린다
-          const prev = history[history.length - 1];
-          if (prev && (Math.abs(f / prev - 2) < 0.06 || Math.abs(f / prev - 0.5) < 0.03)) return;
-          history.push(f);
-          if (history.length > 5) history.shift();
-          const sorted = [...history].sort((a, b) => a - b);
-          setFreq(sorted[Math.floor(sorted.length / 2)]);
-        } else if (++silent > 25) {
-          history.length = 0;
-          setFreq(null);
-        }
-      };
-      res.current = { ctx, stream, raf: requestAnimationFrame(loop) };
-      setStatus('listening');
     } catch {
-      setStatus('denied');
+      if (gen === generation.current) setStatus('denied');
+      return;
     }
+    // 기다리는 동안 정지됐거나 다시 시작됐다면 이 마이크는 바로 반납
+    if (gen !== generation.current) {
+      release({ stream });
+      return;
+    }
+
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 4096;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    const tracker = createPitchTracker();
+    let frame = 0;
+
+    const s: Session = { ctx, stream, raf: 0 };
+    const loop = () => {
+      if (gen !== generation.current) return;
+      s.raf = requestAnimationFrame(loop);
+      if (frame++ % 2) return; // 약 30fps로 분석
+      analyser.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i += 8) peak = Math.max(peak, Math.abs(buf[i]));
+      setLevel(Math.min(1, peak * 3));
+      setFreq(tracker.push(detectPitch(buf, ctx.sampleRate)));
+    };
+    s.raf = requestAnimationFrame(loop);
+    session.current = s;
+    setStatus('listening');
   }, []);
 
   useEffect(() => stop, [stop]);

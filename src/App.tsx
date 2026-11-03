@@ -1,7 +1,7 @@
 import { Button, Tabs, useTheme } from '@heroui/react';
-import { BookOpen, Gauge, Grid3x3, Metronome, Moon, Sun } from 'lucide-react';
+import { BookOpen, Gauge, Grid3x3, Metronome, Moon, Sun, TriangleAlert, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { usePersistent } from './lib/storage';
+import { usePersistent, useStorageError } from './lib/storage';
 import { Tuner } from './features/tuner/Tuner';
 import { Songbook } from './features/songs/Songbook';
 import { ChordLibrary } from './features/chords/ChordLibrary';
@@ -22,6 +22,7 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
   const { resolvedTheme, setTheme } = useTheme('dark');
+  const [storageFailed, dismissStorage] = useStorageError();
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -62,6 +63,18 @@ export function App() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pt-5 pb-28 md:pb-12">
+        {storageFailed && (
+          <div role="alert" className="mb-4 flex items-start gap-3 rounded-xl bg-danger/10 p-3 text-sm text-danger">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            <p className="flex-1">
+              변경 내용을 기기에 저장하지 못했어요. 저장 공간이 부족하거나 사생활 보호 모드일 수 있습니다. 새로 고치기 전에
+              악보를 따로 복사해 두세요.
+            </p>
+            <button type="button" aria-label="닫기" onClick={dismissStorage} className="rounded p-0.5 hover:bg-danger/15">
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
