@@ -1,0 +1,16 @@
+{
+  "name": "코드북 — 기타 튜너·코드·송북",
+  "short_name": "코드북",
+  "description": "어쿠스틱 기타 튜너, 코드 사전, 송북, 연습 도구",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16120f",
+  "theme_color": "#16120f",
+  "icons": [
+    { "src": "app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

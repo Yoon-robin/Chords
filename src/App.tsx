@@ -71,7 +71,7 @@ export function App() {
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             <p className="flex-1">
               변경 내용을 기기에 저장하지 못했어요. 저장 공간이 부족하거나 사생활 보호 모드일 수 있습니다. 새로 고치기 전에
-              악보를 따로 복사해 두세요.
+              송북 아래 백업에서 내보내기를 해 두세요.
             </p>
             <button type="button" aria-label="닫기" onClick={dismissStorage} className="rounded p-0.5 hover:bg-danger/15">
               <X className="size-4" />

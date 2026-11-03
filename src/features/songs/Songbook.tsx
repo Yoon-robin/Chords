@@ -7,6 +7,7 @@ import { newId, parseBody, songChords, type Song } from '../../lib/songs';
 import { pretty } from '../../lib/theory';
 import { SongView } from './SongView';
 import { SongEditor } from './SongEditor';
+import { BackupPanel } from './BackupPanel';
 
 const FILTERS = [
   { id: 'all', label: '전체' },
@@ -212,6 +213,7 @@ export function Songbook() {
         인기곡은 저작권 때문에 가사 없이 코드 진행만 들어 있어요. 곡을 열고 <b>편집</b>을 누르면 내 노래로 복사되고, 갖고 있는
         악보의 가사와 코드를 붙여넣어 완성할 수 있어요.
       </p>
+      <BackupPanel mineCount={mine.length} />
       {editor}
     </div>
   );
