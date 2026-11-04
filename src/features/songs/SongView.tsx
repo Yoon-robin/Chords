@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Star, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Check, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
-import { parseBody, simplifyChord, songChords, transposeText, type Line, type Song } from '../../lib/songs';
+import { parseBody, simplifyChord, songChords, toChordPro, transposeText, type Line, type Song } from '../../lib/songs';
 import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
 import { useWakeLock } from '../../lib/useWakeLock';
@@ -229,6 +229,23 @@ export function SongView({
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // ChordPro로 내보내기: 휴대폰은 공유 시트, 나머지는 클립보드로
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const text = toChordPro(song);
+    try {
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+        await navigator.share({ title: song.title, text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* 공유를 취소했거나 클립보드를 쓸 수 없음 */
+    }
+  };
+
   const shiftSemis = (d: number) => setPref('semis', Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, semis + d)));
 
   return (
@@ -248,6 +265,9 @@ export function SongView({
           onPress={onToggleFavorite}
         >
           <Star className={`size-5 ${favorite ? 'fill-accent text-accent' : ''}`} />
+        </Button>
+        <Button variant="ghost" size="sm" isIconOnly aria-label={copied ? 'ChordPro로 복사했어요' : '공유 (ChordPro)'} onPress={share}>
+          {copied ? <Check className="size-5 text-success" /> : <Share2 className="size-5" />}
         </Button>
         <Button variant="tertiary" size="sm" onPress={onEdit}>
           <Pencil className="size-4" />

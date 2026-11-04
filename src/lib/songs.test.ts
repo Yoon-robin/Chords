@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { importText, parseBody, simplifyChord } from './songs';
+import { importText, parseBody, simplifyChord, toChordPro } from './songs';
 import { buildTimeline, METERS, slotAt, stepSeconds } from './timeline';
 
 describe('타임라인', () => {
@@ -79,5 +79,35 @@ describe('쉬운 코드', () => {
     expect(['Cmaj7', 'Am7', 'G/B', 'Dsus4', 'E7', 'F#m7b5', 'Bbadd9', 'Bdim7', 'Em', 'N.C.'].map(simplifyChord)).toEqual([
       'C', 'Am', 'G', 'D', 'E', 'F#m', 'Bb', 'Bdim', 'Em', 'N.C.',
     ]);
+  });
+});
+
+describe('ChordPro', () => {
+  const cho = [
+    '{title: 연습곡}',
+    '{artist: 나}',
+    '{key: G}',
+    '{capo: 2}',
+    '{tempo: 96}',
+    '{start_of_verse}',
+    '[G]하늘 [C]아래',
+    '{end_of_verse}',
+    '{comment: Chorus}',
+    '| G | D |',
+    '{ci: x2}',
+  ].join('\n');
+
+  it('지시어를 머리말과 구간으로 바꾼다', () => {
+    const r = importText(cho);
+    expect([r.title, r.artist, r.key, r.capo, r.bpm]).toEqual(['연습곡', '나', 'G', 2, 96]);
+    expect(r.body).toBe(['# Verse', '[G]하늘 [C]아래', '# Chorus', '| G | D |', '> x2'].join('\n'));
+  });
+
+  it('내보낸 것을 다시 가져오면 같은 곡이 된다', () => {
+    const body = ['# Intro / Verse', '[G]하늘 [C]아래', '> x2', '| G | D |', '# 후렴', '| C |'].join('\n');
+    const song = { id: 'x', title: '연습곡', artist: '나', key: 'G', capo: 2, bpm: 96, hasLyrics: true, body };
+    const r = importText(toChordPro(song));
+    expect(r.body).toBe(body);
+    expect([r.title, r.artist, r.key, r.capo, r.bpm]).toEqual(['연습곡', '나', 'G', 2, 96]);
   });
 });

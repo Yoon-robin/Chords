@@ -46,6 +46,14 @@ export function SongEditor({ song, onSave, onCancel }: { song: Song; onSave: (s:
     const r = importText(text);
     setBody(r.body);
     const filled: string[] = [];
+    if (r.title && !title.trim()) {
+      setTitle(r.title);
+      filled.push('제목');
+    }
+    if (r.artist && !artist.trim()) {
+      setArtist(r.artist);
+      filled.push('가수');
+    }
     if (r.capo && !capo) {
       setCapo(String(r.capo));
       filled.push(`카포 ${r.capo}`);

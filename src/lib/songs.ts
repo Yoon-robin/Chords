@@ -177,7 +177,47 @@ function chordLineToBars(line: string) {
   return rep ? [bars, '> ' + rep.replace(/[()]/g, '')] : [bars];
 }
 
-export type ImportResult = { body: string; capo?: number; key?: string; bpm?: number; time?: TimeSig };
+export type ImportResult = {
+  body: string;
+  title?: string;
+  artist?: string;
+  capo?: number;
+  key?: string;
+  bpm?: number;
+  time?: TimeSig;
+};
+
+// ChordPro 지시어 {name: value}
+const DIRECTIVE_RE = /^\s*\{\s*([a-z_]+)\s*(?::\s*(.*?))?\s*\}\s*$/i;
+// "Intro / Verse", "Chorus x2"처럼 구간 이름으로 시작하는 주석은 구간 제목으로
+const SECTION_START_RE = new RegExp(`^\\s*${SECTION_WORDS}(?![a-z])`, 'i');
+const SECTION_DIRECTIVES: Record<string, string> = {
+  start_of_verse: 'Verse',
+  sov: 'Verse',
+  start_of_chorus: 'Chorus',
+  soc: 'Chorus',
+  start_of_bridge: 'Bridge',
+  sob: 'Bridge',
+};
+
+// ChordPro 지시어 줄이면 처리하고 true
+function chordProDirective(line: string, out: string[], meta: Omit<ImportResult, 'body'>) {
+  const d = DIRECTIVE_RE.exec(line);
+  if (!d) return false;
+  const name = d[1].toLowerCase();
+  const value = (d[2] ?? '').trim();
+  if (name === 'title' || name === 't') meta.title = value;
+  else if (name === 'artist' || name === 'subtitle' || name === 'st') meta.artist ??= value;
+  else if (name === 'key') meta.key = value || undefined;
+  else if (name === 'capo') meta.capo = Number(value) || undefined;
+  else if (name === 'tempo') meta.bpm = Number(value) || undefined;
+  else if (name === 'time' && (TIME_SIGS as string[]).includes(value)) meta.time = value as TimeSig;
+  else if (name in SECTION_DIRECTIVES) out.push('# ' + (value || SECTION_DIRECTIVES[name]));
+  else if (name === 'comment' || name === 'c') out.push(SECTION_START_RE.test(value) ? '# ' + value : '> ' + value);
+  else if (['comment_italic', 'ci', 'comment_box', 'cb'].includes(name)) out.push('> ' + value);
+  // end_of_*, start_of_tab 등 나머지는 버린다 (탭 줄은 따로 알아본다)
+  return true;
+}
 
 export function importText(text: string): ImportResult {
   // 사이트 원본 마크업([ch]G[/ch], [tab]…[/tab])이 섞여 들어와도 처리
@@ -194,6 +234,7 @@ export function importText(text: string): ImportResult {
     !isTabLine(l) &&
     !SECTION_RE.test(l) &&
     !BRACKET_RE.test(l) &&
+    !DIRECTIVE_RE.test(l) &&
     !l.includes('[');
 
   for (let i = 0; i < src.length; i++) {
@@ -203,6 +244,8 @@ export function importText(text: string): ImportResult {
       out.push(line.trim());
       continue;
     }
+
+    if (chordProDirective(line, out, meta)) continue;
 
     // 머리말
     if (NO_CAPO_RE.test(line) || DROP_RE.test(line)) continue;
@@ -259,6 +302,30 @@ export function importText(text: string): ImportResult {
     out.push(line);
   }
   return { ...meta, body: out.join('\n').replace(/\n{3,}/g, '\n\n').trim() };
+}
+
+// 내보내기: ChordPro 형식 (다른 코드 앱에서도 읽을 수 있다)
+export function toChordPro(song: Song) {
+  const head = [
+    `{title: ${song.title || '제목 없음'}}`,
+    song.artist && `{artist: ${song.artist}}`,
+    song.key && `{key: ${song.key}}`,
+    song.capo && `{capo: ${song.capo}}`,
+    song.bpm && `{tempo: ${song.bpm}}`,
+    song.time && song.time !== '4/4' && `{time: ${song.time}}`,
+  ].filter(Boolean);
+  const body: string[] = [];
+  let inTab = false;
+  for (const line of song.body.split(/\r?\n/)) {
+    const tab = isTabLine(line);
+    if (tab !== inTab) body.push(tab ? '{start_of_tab}' : '{end_of_tab}');
+    inTab = tab;
+    if (line.startsWith('# ')) body.push(`{comment: ${line.slice(2).trim()}}`);
+    else if (line.startsWith('> ')) body.push(`{comment_italic: ${line.slice(2).trim()}}`);
+    else body.push(line);
+  }
+  if (inTab) body.push('{end_of_tab}');
+  return [...head, '', ...body].join('\n').trim() + '\n';
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
