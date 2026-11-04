@@ -5,20 +5,9 @@ import { motion } from 'motion/react';
 import { click, now, pluck } from '../../lib/audio';
 import { freqToMidi, midiName, midiToFreq, NOTE_NAMES } from '../../lib/theory';
 import { usePersistent } from '../../lib/storage';
+import { TUNINGS } from '../../lib/tunings';
 import { useTuner } from './useTuner';
 
-const TUNINGS = [
-  { id: 'standard', name: '표준 (E A D G B E)', midi: [40, 45, 50, 55, 59, 64] },
-  { id: 'half-down', name: '반음 내림 (E♭ 튜닝)', midi: [39, 44, 49, 54, 58, 63] },
-  { id: 'whole-down', name: '온음 내림 (D 튜닝)', midi: [38, 43, 48, 53, 57, 62] },
-  { id: 'drop-d', name: 'Drop D', midi: [38, 45, 50, 55, 59, 64] },
-  { id: 'drop-c', name: 'Drop C', midi: [36, 43, 48, 53, 57, 62] },
-  { id: 'open-g', name: 'Open G', midi: [38, 43, 50, 55, 59, 62] },
-  { id: 'open-d', name: 'Open D', midi: [38, 45, 50, 54, 57, 62] },
-  { id: 'open-e', name: 'Open E', midi: [40, 47, 52, 56, 59, 64] },
-  { id: 'open-c', name: 'Open C', midi: [36, 43, 48, 55, 60, 64] },
-  { id: 'dadgad', name: 'DADGAD', midi: [38, 45, 50, 55, 57, 62] },
-];
 const STANDARD = TUNINGS[0].midi;
 
 const IN_TUNE = 5; // ±센트

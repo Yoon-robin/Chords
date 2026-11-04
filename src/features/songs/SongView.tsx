@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, Check, Printer, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Check, Gauge, Printer, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { parseBody, simplifyChord, songChords, toChordPro, transposeText, type Line, type Song } from '../../lib/songs';
-import { usePersistent } from '../../lib/storage';
+import { save, usePersistent } from '../../lib/storage';
+import { matchTuning } from '../../lib/tunings';
 import { arpString, pretty, TUNING } from '../../lib/theory';
 import { useWakeLock } from '../../lib/useWakeLock';
 import { buildTimeline, hasPlayable, METERS, RHYTHMS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
@@ -587,8 +588,30 @@ export function LineView({
           )}
         </h2>
       );
-    case 'note':
-      return <p className="text-[0.875em] text-muted italic">{line.text}</p>;
+    case 'note': {
+      // "튜닝: Drop D" 같은 메모는 튜너에서 그 튜닝으로 바로 맞출 수 있게
+      const tuning = matchTuning(line.text);
+      return (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.875em] text-muted italic">
+          {line.text}
+          {tuning && (
+            <button
+              type="button"
+              aria-label={`튜너에서 ${tuning.name} 맞추기`}
+              onClick={() => {
+                save('tuner.tuning', tuning.id);
+                save('tuner.chromatic', false);
+                window.dispatchEvent(new CustomEvent('chordbook:goto', { detail: 'tuner' }));
+              }}
+              className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent not-italic transition hover:bg-accent/25 print:hidden"
+            >
+              <Gauge className="size-3.5" />
+              튜너에서 맞추기
+            </button>
+          )}
+        </p>
+      );
+    }
     case 'tab':
       return (
         <pre className="my-1 overflow-x-auto rounded-xl border border-border bg-surface px-3 py-2 font-mono text-[0.8em] leading-snug text-foreground/90">
