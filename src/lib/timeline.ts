@@ -19,6 +19,26 @@ export const METERS: Record<TimeSig, Meter> = {
   '6/8': { steps: 6, stepsPerBeat: 3, pattern: 'D-UD-U', stepsPerBpm: 3 },
 };
 
+// 반주 리듬 (D 다운, U 업, - 쉼, arp 아르페지오). 첫 번째가 박자표 기본
+export const RHYTHMS: Record<TimeSig, { id: string; name: string }[]> = {
+  '4/4': [
+    { id: 'D-DU-UDU', name: '기본' },
+    { id: 'D-D-D-D-', name: '다운' },
+    { id: 'DUDUDUDU', name: '8비트' },
+    { id: 'arp', name: '아르페지오' },
+  ],
+  '3/4': [
+    { id: 'D-DUDU', name: '기본' },
+    { id: 'D-D-D-', name: '다운' },
+    { id: 'arp', name: '아르페지오' },
+  ],
+  '6/8': [
+    { id: 'D-UD-U', name: '기본' },
+    { id: 'D--D--', name: '다운' },
+    { id: 'arp', name: '아르페지오' },
+  ],
+};
+
 export const stepSeconds = (bpm: number, time: TimeSig = '4/4') => 60 / bpm / METERS[time].stepsPerBpm;
 
 export type Slot = string | null;

@@ -2,16 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
 import { ALargeSmall, ArrowDownToLine, Check, Printer, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
-import { click, createLoop, damp, strum } from '../../lib/audio';
+import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { parseBody, simplifyChord, songChords, toChordPro, transposeText, type Line, type Song } from '../../lib/songs';
 import { usePersistent } from '../../lib/storage';
-import { pretty } from '../../lib/theory';
+import { arpString, pretty, TUNING } from '../../lib/theory';
 import { useWakeLock } from '../../lib/useWakeLock';
-import { buildTimeline, hasPlayable, METERS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
+import { buildTimeline, hasPlayable, METERS, RHYTHMS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
 
 // 조옮김은 한 옥타브 안에서만 (그 이상은 같은 코드 이름이 반복됨)
 const MAX_SHIFT = 11;
-type SongPrefs = { semis?: number; flats?: boolean; bpm?: number; simple?: boolean; capo?: number };
+type SongPrefs = { semis?: number; flats?: boolean; bpm?: number; simple?: boolean; capo?: number; rhythm?: string };
 const MAX_CAPO = 9;
 
 // 오픈 운지가 없는 코드(바레·하이 포지션) 개수
@@ -135,14 +135,16 @@ export function SongView({
   }, [scrolling, speed]);
 
   // 반주 재생: 박자표에 맞는 스트럼 패턴, 쉬는 마디(N.C.)는 소리 없이 지나간다
-  const state = useRef({ bpm, timeline, capo, time, tx });
-  state.current = { bpm, timeline, capo, time, tx };
+  const rhythms = RHYTHMS[time];
+  const rhythm = rhythms.find((r) => r.id === prefs.rhythm)?.id ?? rhythms[0].id;
+  const state = useRef({ bpm, timeline, capo, time, tx, rhythm });
+  state.current = { bpm, timeline, capo, time, tx, rhythm };
   const loop = useMemo(
     () =>
       createLoop(
         () => stepSeconds(state.current.bpm, state.current.time),
         (step, when, at) => {
-          const { timeline: tl, capo: cp, time: ts, tx: t } = state.current;
+          const { timeline: tl, capo: cp, time: ts, tx: t, rhythm: rh } = state.current;
           if (!tl.length) return;
           const meter = METERS[ts];
           if (step < meter.steps) {
@@ -167,10 +169,18 @@ export function SongView({
           }
           const r = resolveChord(t(chord));
           if (!r) return;
+          const { frets } = r.voicing;
+          if (rh === 'arp') {
+            // 코드가 바뀌면 앞 코드 울림을 끊고 베이스부터 한 음씩
+            if (slotStart) damp(when);
+            const str = arpString(frets, slotStart ? 0 : e);
+            if (str != null) pluck(TUNING[str] + frets[str]! + cp, when, slotStart ? 0.95 : 0.7);
+            return;
+          }
           // 코드가 바뀌는 칸은 패턴과 상관없이 다운으로 시작
-          const p = slotStart ? 'D' : meter.pattern[e];
-          if (p === 'D') strum(r.voicing.frets, { when, vel: e === 0 ? 1 : 0.72, spread: 0.02, transpose: cp });
-          else if (p === 'U') strum(r.voicing.frets, { when, dir: 'up', vel: 0.5, spread: 0.014, transpose: cp });
+          const p = slotStart ? 'D' : rh[e];
+          if (p === 'D') strum(frets, { when, vel: e === 0 ? 1 : 0.72, spread: 0.02, transpose: cp });
+          else if (p === 'U') strum(frets, { when, dir: 'up', vel: 0.5, spread: 0.014, transpose: cp });
         },
       ),
     [],
@@ -441,6 +451,25 @@ export function SongView({
               </Slider.Track>
             </Slider>
             <span className="w-14 text-right text-sm font-bold tabular-nums">♩ {bpm}</span>
+          </div>
+        )}
+        {playable && (
+          <div role="radiogroup" aria-label="반주 리듬" className="flex basis-full flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-sm font-semibold whitespace-nowrap text-muted">리듬</span>
+            {rhythms.map((r, i) => (
+              <button
+                key={r.id}
+                type="button"
+                role="radio"
+                aria-checked={r.id === rhythm}
+                onClick={() => setPref('rhythm', i === 0 ? undefined : r.id)}
+                className={`rounded-lg px-2 py-1 text-xs font-bold whitespace-nowrap transition ${
+                  r.id === rhythm ? 'bg-accent text-accent-foreground' : 'bg-surface-secondary text-muted hover:text-foreground'
+                }`}
+              >
+                {r.name}
+              </button>
+            ))}
           </div>
         )}
         <p className="hidden basis-full text-xs text-muted sm:block">

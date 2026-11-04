@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { importText, parseBody, simplifyChord, toChordPro } from './songs';
-import { buildTimeline, METERS, slotAt, stepSeconds } from './timeline';
+import { buildTimeline, METERS, RHYTHMS, slotAt, stepSeconds } from './timeline';
 
 describe('타임라인', () => {
   it('N.C. 마디를 빼지 않고 쉬는 칸으로 둔다', () => {
@@ -109,5 +109,15 @@ describe('ChordPro', () => {
     const r = importText(toChordPro(song));
     expect(r.body).toBe(body);
     expect([r.title, r.artist, r.key, r.capo, r.bpm]).toEqual(['연습곡', '나', 'G', 2, 96]);
+  });
+});
+
+describe('반주 리듬', () => {
+  it('박자표마다 첫 리듬은 기본 패턴이고 길이가 한 마디 칸 수와 같다', () => {
+    for (const [ts, list] of Object.entries(RHYTHMS)) {
+      const m = METERS[ts as keyof typeof METERS];
+      expect(list[0].id).toBe(m.pattern);
+      for (const r of list) if (r.id !== 'arp') expect(r.id).toHaveLength(m.steps);
+    }
   });
 });
