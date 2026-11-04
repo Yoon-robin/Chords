@@ -3,6 +3,7 @@ import { Button, Card } from '@heroui/react';
 import { RotateCcw, Timer, Trophy } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
 import { click, ensureAudio, now } from '../../lib/audio';
+import { usePracticeTimer } from '../../lib/practiceLog';
 import { usePersistent } from '../../lib/storage';
 import { pretty } from '../../lib/theory';
 
@@ -43,6 +44,7 @@ export function ChangeTrainer() {
 
   const pair = [a, b].sort().join('-');
   const running = endsAt != null;
+  usePracticeTimer(running);
 
   useEffect(() => {
     if (endsAt == null) return;

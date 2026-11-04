@@ -6,6 +6,7 @@ import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { parseBody, simplifyChord, songChords, toChordPro, transposeText, type Line, type Song } from '../../lib/songs';
 import { save, usePersistent } from '../../lib/storage';
 import { matchTuning } from '../../lib/tunings';
+import { usePracticeTimer } from '../../lib/practiceLog';
 import { arpString, pretty, TUNING } from '../../lib/theory';
 import { useWakeLock } from '../../lib/useWakeLock';
 import { buildTimeline, hasPlayable, METERS, RHYTHMS, slotAt, stepSeconds, type TimelineBar } from '../../lib/timeline';
@@ -65,6 +66,7 @@ export function SongView({
   const [countBeat, setCountBeat] = useState(0);
   const [textSize, setTextSize] = usePersistent('song.textSize', 1);
   useWakeLock(scrolling || playing);
+  usePracticeTimer(playing);
 
   const lines = useMemo(() => parseBody(song.body), [song.body]);
   // 카포를 바꾸면 소리는 그대로 두고 운지 모양만 옮긴다 (소리 = 모양 + 카포)

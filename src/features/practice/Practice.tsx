@@ -4,6 +4,8 @@ import { Hand, Minus, Pause, Play, Plus, TrendingUp, X } from 'lucide-react';
 import { MiniChord } from '../../components/ChordCard';
 import { ChangeTrainer } from './ChangeTrainer';
 import { ChordQuiz } from './ChordQuiz';
+import { PracticeStreak } from './PracticeStreak';
+import { usePracticeTimer } from '../../lib/practiceLog';
 import { click, createLoop, damp, pluck, strum } from '../../lib/audio';
 import { usePersistent } from '../../lib/storage';
 import { arpString, diatonic, pretty, SCALES, TUNING, voicings, type Mode } from '../../lib/theory';
@@ -64,6 +66,7 @@ export function Practice() {
   const [beat, setBeat] = useState(-1);
   const [bar, setBar] = useState(-1);
   const taps = useRef<number[]>([]);
+  usePracticeTimer(running != null);
 
   const chords = diatonic(keyPc, mode, sevenths);
   const st = useRef({ bpm, beats, prog, chords, pattern, withClick, running, ramp });
@@ -173,6 +176,7 @@ export function Practice() {
           ))}
         </nav>
       </div>
+      <PracticeStreak />
 
       {/* 메트로놈 */}
       <section id="p-metro" className="scroll-mt-20">
