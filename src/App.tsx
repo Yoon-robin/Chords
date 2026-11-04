@@ -50,6 +50,13 @@ export function App() {
     };
   }, []);
 
+  // 다른 탭에서 "이 곡 열기" 같은 이동 요청
+  useEffect(() => {
+    const go = (e: Event) => setTab((e as CustomEvent<TabId>).detail);
+    window.addEventListener('chordbook:goto', go);
+    return () => window.removeEventListener('chordbook:goto', go);
+  });
+
   // 휴대폰 상단 바 색도 테마 배경에 맞춘다
   useEffect(() => {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');

@@ -1,11 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SearchField, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { VoicingCard } from '../../components/ChordCard';
 import type { LabelMode } from '../../components/ChordDiagram';
 import { strum } from '../../lib/audio';
 import { setLefty, useLefty } from '../../lib/lefty';
-import { usePersistent } from '../../lib/storage';
-import { chordName, chordTones, parseChord, pretty, QMAP, QUALITIES, ROOTS, voicings } from '../../lib/theory';
+import { BookOpen } from 'lucide-react';
+import { BUILTIN_SONGS } from '../../data/songs';
+import { parseBody, songChords, type Song } from '../../lib/songs';
+import { load, save, usePersistent } from '../../lib/storage';
+import { chordName, chordTones, parseChord, parseSongChord, pretty, QMAP, QUALITIES, ROOTS, voicings } from '../../lib/theory';
+
+// 코드 → 그 코드가 나오는 곡 (분수 코드는 베이스음을 빼고 같은 코드로 본다)
+function songsByChord() {
+  const map = new Map<string, Song[]>();
+  for (const song of [...load<Song[]>('songs.mine', []), ...BUILTIN_SONGS]) {
+    const keys = new Set(
+      songChords(parseBody(song.body))
+        .map(parseSongChord)
+        .filter((c) => c != null)
+        .map((c) => `${c.pc}|${c.qid}`),
+    );
+    for (const k of keys) map.set(k, [...(map.get(k) ?? []), song]);
+  }
+  return map;
+}
+
+// 송북 탭으로 가서 그 곡을 연다 (App이 탭을 바꾸고, 송북은 열 때 저장된 곡을 읽는다)
+function openSong(id: string) {
+  save('songs.open', id);
+  window.dispatchEvent(new CustomEvent('chordbook:goto', { detail: 'songs' }));
+}
 
 export function ChordLibrary() {
   const [root, setRoot] = usePersistent('chords.root', 0);
@@ -20,6 +44,8 @@ export function ChordLibrary() {
   const tones = chordTones(rootName, q.id);
   const list = voicings(root, q.id);
   const invalid = !!query.trim() && !parseChord(query);
+  const byChord = useMemo(songsByChord, []);
+  const usedIn = byChord.get(`${root}|${q.id}`) ?? [];
 
   // ← → 루트, ↑ ↓ 종류, Space 재생
   useEffect(() => {
@@ -148,6 +174,27 @@ export function ChordLibrary() {
           <VoicingCard key={v.code} voicing={v} name={name} rootName={rootName} qid={q.id} labels={labels} />
         ))}
       </div>
+
+      {usedIn.length > 0 && (
+        <section aria-label={`${name} 코드가 나오는 곡`}>
+          <h2 className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-muted">
+            <BookOpen className="size-4" />
+            {name} 코드가 나오는 곡 {usedIn.length}개
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {usedIn.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => openSong(s.id)}
+                className="max-w-56 truncate rounded-xl border border-border bg-surface px-3 py-1.5 text-sm font-semibold transition hover:border-accent"
+              >
+                {s.title || '제목 없음'}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <p className="hidden text-sm text-muted md:block">
         카드를 누르면 스트럼 · 키보드 ← → 루트, ↑ ↓ 종류, Space 재생
       </p>
