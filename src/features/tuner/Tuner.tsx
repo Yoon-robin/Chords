@@ -10,11 +10,16 @@ import { useTuner } from './useTuner';
 const TUNINGS = [
   { id: 'standard', name: '표준 (E A D G B E)', midi: [40, 45, 50, 55, 59, 64] },
   { id: 'half-down', name: '반음 내림 (E♭ 튜닝)', midi: [39, 44, 49, 54, 58, 63] },
+  { id: 'whole-down', name: '온음 내림 (D 튜닝)', midi: [38, 43, 48, 53, 57, 62] },
   { id: 'drop-d', name: 'Drop D', midi: [38, 45, 50, 55, 59, 64] },
+  { id: 'drop-c', name: 'Drop C', midi: [36, 43, 48, 53, 57, 62] },
   { id: 'open-g', name: 'Open G', midi: [38, 43, 50, 55, 59, 62] },
   { id: 'open-d', name: 'Open D', midi: [38, 45, 50, 54, 57, 62] },
+  { id: 'open-e', name: 'Open E', midi: [40, 47, 52, 56, 59, 64] },
+  { id: 'open-c', name: 'Open C', midi: [36, 43, 48, 55, 60, 64] },
   { id: 'dadgad', name: 'DADGAD', midi: [38, 45, 50, 55, 57, 62] },
 ];
+const STANDARD = TUNINGS[0].midi;
 
 const IN_TUNE = 5; // ±센트
 const noteOnly = (midi: number) => NOTE_NAMES[midi % 12].replace('#', '♯');
@@ -204,6 +209,8 @@ export function Tuner() {
           {tuning.midi.map((m, i) => {
             const isTarget = i === target;
             const done = tuned.has(i);
+            // 표준 튜닝에서 몇 반음 바꾸는 줄인지 (다른 튜닝으로 바꿀 때 어느 줄을 만지면 되는지)
+            const diff = m - STANDARD[i];
             return (
               <button
                 key={i}
@@ -224,6 +231,15 @@ export function Tuner() {
                 )}
                 <span className="text-xl font-extrabold">{noteOnly(m)}</span>
                 <span className="text-[11px] text-muted">{6 - i}번줄</span>
+                {diff !== 0 && (
+                  <span
+                    className="text-[11px] font-bold text-accent tabular-nums"
+                    title={`표준보다 ${Math.abs(diff)}반음 ${diff < 0 ? '낮게' : '높게'}`}
+                  >
+                    {diff < 0 ? '↓' : '↑'}
+                    {Math.abs(diff)}
+                  </span>
+                )}
               </button>
             );
           })}
