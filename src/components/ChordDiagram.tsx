@@ -1,3 +1,4 @@
+import { useLefty } from '../lib/lefty';
 import { pretty, TUNING, type Fret, type Tone, type Voicing } from '../lib/theory';
 
 const SX = 16; // 줄 간격
@@ -46,7 +47,9 @@ export function ChordDiagram({
   const fr = frets.filter((f): f is number => f != null && f > 0);
   const maxF = fr.length ? Math.max(...fr) : 0;
   const base = maxF <= FRETS ? 1 : Math.min(...fr);
-  const x = (i: number) => PX + i * SX;
+  // 왼손잡이는 6번줄이 오른쪽에 오도록 좌우를 뒤집는다 (글자는 뒤집지 않음)
+  const lefty = useLefty();
+  const x = (i: number) => PX + (lefty ? 5 - i : i) * SX;
   const barre = findBarre(frets);
 
   return (
@@ -60,9 +63,9 @@ export function ChordDiagram({
         <line key={k} x1={x(0)} x2={x(5)} y1={PY + k * SY} y2={PY + k * SY} className="stroke-fret" strokeWidth={1} />
       ))}
       {base === 1 ? (
-        <rect x={x(0) - 1} y={PY - 3} width={SX * 5 + 2} height={4} rx={1} className="fill-foreground" />
+        <rect x={PX - 1} y={PY - 3} width={SX * 5 + 2} height={4} rx={1} className="fill-foreground" />
       ) : (
-        <text x={x(0) - 8} y={PY + SY / 2 + 3.5} textAnchor="end" className="fill-muted text-[9px] font-bold">
+        <text x={PX - 8} y={PY + SY / 2 + 3.5} textAnchor="end" className="fill-muted text-[9px] font-bold">
           {base}fr
         </text>
       )}
@@ -79,9 +82,9 @@ export function ChordDiagram({
       ))}
       {barre && (
         <rect
-          x={x(barre.from) - R}
+          x={Math.min(x(barre.from), x(5)) - R}
           y={PY + (barre.fret - base + 0.5) * SY - R}
-          width={x(5) - x(barre.from) + 2 * R}
+          width={Math.abs(x(5) - x(barre.from)) + 2 * R}
           height={2 * R}
           rx={R}
           className="fill-foreground"

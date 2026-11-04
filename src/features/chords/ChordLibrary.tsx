@@ -3,6 +3,7 @@ import { SearchField, ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { VoicingCard } from '../../components/ChordCard';
 import type { LabelMode } from '../../components/ChordDiagram';
 import { strum } from '../../lib/audio';
+import { setLefty, useLefty } from '../../lib/lefty';
 import { usePersistent } from '../../lib/storage';
 import { chordName, chordTones, parseChord, pretty, QMAP, QUALITIES, ROOTS, voicings } from '../../lib/theory';
 
@@ -11,6 +12,7 @@ export function ChordLibrary() {
   const [qid, setQid] = usePersistent('chords.quality', '');
   const [labels, setLabels] = usePersistent<LabelMode>('chords.labels', 'interval');
   const [query, setQuery] = useState('');
+  const lefty = useLefty();
 
   const q = QMAP[qid] ?? QMAP[''];
   const rootName = ROOTS[root];
@@ -136,6 +138,9 @@ export function ChordLibrary() {
             숨김
           </ToggleButton>
         </ToggleButtonGroup>
+        <ToggleButton size="sm" isSelected={lefty} onChange={setLefty} aria-label="왼손잡이 표시 (모든 다이어그램 좌우 반전)">
+          왼손잡이
+        </ToggleButton>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
