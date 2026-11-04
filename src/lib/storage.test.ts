@@ -46,6 +46,21 @@ describe('save', () => {
     expect(() => importBackup('{"app":"other"}')).toThrow();
   });
 
+  it('즐겨찾기와 연습 기록은 덮어쓰지 않고 합친다', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('window', new EventTarget());
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    });
+    save('songs.fav', ['a', 'b']);
+    save('practice.log', { '2026-11-03': 600, '2026-11-04': 100 });
+    const data = { 'songs.fav': ['b', 'c'], 'practice.log': { '2026-11-02': 300, '2026-11-04': 50 } };
+    importBackup(JSON.stringify({ app: 'chordbook', version: 1, exportedAt: '', data }));
+    expect(load('songs.fav', [])).toEqual(['a', 'b', 'c']);
+    expect(load('practice.log', {})).toEqual({ '2026-11-02': 300, '2026-11-03': 600, '2026-11-04': 100 });
+  });
+
   it('성공하면 true', () => {
     const store = new Map<string, string>();
     vi.stubGlobal('window', new EventTarget());

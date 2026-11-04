@@ -54,16 +54,26 @@ export function exportBackup(): Backup {
 
 type Song = { id: string };
 
-// 내 노래는 id 기준으로 합치고(같은 곡은 가져온 쪽으로 교체), 나머지 설정은 덮어쓴다.
-// 반환값: 가져온 곡 수
+// 내 노래는 id 기준으로 합치고(같은 곡은 가져온 쪽으로 교체), 즐겨찾기와 연습 기록도 합친다.
+// 나머지 설정은 덮어쓴다. 반환값: 가져온 곡 수
 export function importBackup(text: string): number {
   const b = JSON.parse(text) as Partial<Backup>;
   if (b?.app !== 'chordbook' || typeof b.data !== 'object' || !b.data) throw new Error('코드북 백업 파일이 아니에요');
-  const { 'songs.mine': songs, ...rest } = b.data as Record<string, unknown>;
+  const { 'songs.mine': songs, 'songs.fav': favs, 'practice.log': log, ...rest } = b.data as Record<string, unknown>;
   const incoming = Array.isArray(songs) ? (songs as Song[]).filter((s) => s && typeof s.id === 'string') : [];
   const current = load<Song[]>('songs.mine', []);
   const merged = [...incoming, ...current.filter((s) => !incoming.some((x) => x.id === s.id))];
   if (!save('songs.mine', merged)) throw new Error('저장 공간이 부족해 가져오지 못했어요');
+  if (Array.isArray(favs)) {
+    const ids = favs.filter((id): id is string => typeof id === 'string');
+    save('songs.fav', [...new Set([...load<string[]>('songs.fav', []), ...ids])]);
+  }
+  // 연습 기록은 날짜마다 큰 쪽을 남긴다 (더하면 같은 백업을 두 번 가져올 때 시간이 부푼다)
+  if (log && typeof log === 'object') {
+    const merged = { ...load<Record<string, number>>('practice.log', {}) };
+    for (const [d, s] of Object.entries(log)) if (typeof s === 'number') merged[d] = Math.max(merged[d] ?? 0, s);
+    save('practice.log', merged);
+  }
   for (const [k, v] of Object.entries(rest)) save(k, v);
   return incoming.length;
 }
