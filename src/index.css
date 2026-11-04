@@ -69,3 +69,20 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* 인쇄: 줄·마디가 페이지 사이에서 잘리지 않게 */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  main {
+    padding: 0 !important;
+  }
+  article > *,
+  [id^='strip-'] {
+    break-inside: avoid;
+  }
+  h2 {
+    break-after: avoid;
+  }
+}

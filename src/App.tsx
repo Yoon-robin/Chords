@@ -27,6 +27,29 @@ export function App() {
   const { resolvedTheme, setTheme } = useTheme('dark');
   const [storageFailed, dismissStorage] = useStorageError();
 
+  // 인쇄할 때는 다크 테마여도 흰 종이에 검은 글씨로
+  useEffect(() => {
+    const root = document.documentElement;
+    let prev: string | null = null;
+    const before = () => {
+      prev = root.getAttribute('data-theme');
+      if (prev !== 'dark') return;
+      root.classList.replace('dark', 'light');
+      root.setAttribute('data-theme', 'light');
+    };
+    const after = () => {
+      if (prev !== 'dark') return;
+      root.classList.replace('light', 'dark');
+      root.setAttribute('data-theme', 'dark');
+    };
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+
   // 휴대폰 상단 바 색도 테마 배경에 맞춘다
   useEffect(() => {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -35,7 +58,7 @@ export function App() {
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-separator bg-background/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 print:hidden border-b border-separator bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2">
             <svg viewBox="0 0 32 32" className="size-7 fill-accent" aria-hidden>
@@ -103,7 +126,7 @@ export function App() {
       </main>
 
       {/* 모바일 하단 탭바 */}
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-separator bg-background/90 backdrop-blur-xl md:hidden">
+      <nav className="safe-bottom print:hidden fixed inset-x-0 bottom-0 z-30 border-t border-separator bg-background/90 backdrop-blur-xl md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;

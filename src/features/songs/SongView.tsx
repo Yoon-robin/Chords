@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, Check, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Check, Printer, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Share2, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, simplifyChord, songChords, toChordPro, transposeText, type Line, type Song } from '../../lib/songs';
@@ -250,7 +250,7 @@ export function SongView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 print:hidden">
         <Button variant="ghost" size="sm" onPress={onBack}>
           <ChevronLeft className="size-4" />
           목록
@@ -268,6 +268,9 @@ export function SongView({
         </Button>
         <Button variant="ghost" size="sm" isIconOnly aria-label={copied ? 'ChordPro로 복사했어요' : '공유 (ChordPro)'} onPress={share}>
           {copied ? <Check className="size-5 text-success" /> : <Share2 className="size-5" />}
+        </Button>
+        <Button variant="ghost" size="sm" isIconOnly aria-label="인쇄·PDF로 저장" onPress={() => window.print()} className="hidden sm:inline-flex">
+          <Printer className="size-5" />
         </Button>
         <Button variant="tertiary" size="sm" onPress={onEdit}>
           <Pencil className="size-4" />
@@ -299,7 +302,7 @@ export function SongView({
       </header>
 
       {/* 곡에 쓰인 코드 */}
-      <div className="sticky top-[57px] z-20 -mx-4 border-b border-separator bg-background/90 px-4 py-2 backdrop-blur-xl">
+      <div className="sticky top-[57px] z-20 -mx-4 border-b border-separator bg-background/90 px-4 py-2 backdrop-blur-xl print:static print:mx-0 print:border-0 print:px-0">
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
           {chords.map((c) => (
             <div key={c} id={`strip-${c}`} className="w-[92px] shrink-0">
@@ -310,7 +313,7 @@ export function SongView({
       </div>
 
       {/* 조옮김 / 스크롤 / 반주 */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-border bg-surface p-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-border bg-surface p-3 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold whitespace-nowrap text-muted">조옮김</span>
           <Button
@@ -461,7 +464,7 @@ export function SongView({
       </article>
 
       {(prev || next) && onOpen && (
-        <nav aria-label="앞뒤 곡" className="grid grid-cols-2 gap-3 border-t border-separator pt-4">
+        <nav aria-label="앞뒤 곡" className="grid grid-cols-2 gap-3 border-t border-separator pt-4 print:hidden">
           {prev ? (
             <button
               type="button"
@@ -545,7 +548,7 @@ export function LineView({
               type="button"
               onClick={onLoop}
               aria-pressed={looping}
-              className={`ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-normal normal-case transition ${
+              className={`ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-normal normal-case transition print:hidden ${
                 looping ? 'bg-accent text-accent-foreground' : 'bg-surface-secondary text-muted hover:text-foreground'
               }`}
             >
