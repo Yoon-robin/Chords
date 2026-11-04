@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, Slider, Label } from '@heroui/react';
-import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, Minus, Pause, Pencil, Play, Plus, Star, Trash } from 'lucide-react';
+import { ALargeSmall, ArrowDownToLine, Repeat, ChevronLeft, ChevronRight, Minus, Pause, Pencil, Play, Plus, Star, Trash } from 'lucide-react';
 import { MiniChord, playChordName, resolveChord } from '../../components/ChordCard';
 import { click, createLoop, damp, strum } from '../../lib/audio';
 import { parseBody, simplifyChord, songChords, transposeText, type Line, type Song } from '../../lib/songs';
@@ -32,6 +32,9 @@ export function SongView({
   onDelete,
   favorite,
   onToggleFavorite,
+  prev,
+  next,
+  onOpen,
 }: {
   song: Song;
   editable: boolean;
@@ -40,6 +43,10 @@ export function SongView({
   onDelete: () => void;
   favorite: boolean;
   onToggleFavorite: () => void;
+  // 목록(검색·필터 결과)에서 앞뒤 곡. 즐겨찾기 필터로 열면 셋리스트처럼 이어서 연주
+  prev?: Song | null;
+  next?: Song | null;
+  onOpen?: (id: string) => void;
 }) {
   // 조옮김·표기·템포는 곡마다 기억한다 (다음에 열어도 내 키로)
   const [prefs, setPrefs] = usePersistent<SongPrefs>(`song.prefs.${song.id}`, {});
@@ -432,6 +439,39 @@ export function SongView({
           />
         ))}
       </article>
+
+      {(prev || next) && onOpen && (
+        <nav aria-label="앞뒤 곡" className="grid grid-cols-2 gap-3 border-t border-separator pt-4">
+          {prev ? (
+            <button
+              type="button"
+              onClick={() => onOpen(prev.id)}
+              className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-surface p-3 text-left transition hover:border-accent"
+            >
+              <ChevronLeft className="size-5 shrink-0 text-muted" />
+              <span className="min-w-0">
+                <span className="block text-xs text-muted">이전 곡</span>
+                <span className="block truncate font-bold">{prev.title || '제목 없음'}</span>
+              </span>
+            </button>
+          ) : (
+            <span />
+          )}
+          {next && (
+            <button
+              type="button"
+              onClick={() => onOpen(next.id)}
+              className="flex min-w-0 items-center justify-end gap-2 rounded-2xl border border-border bg-surface p-3 text-right transition hover:border-accent"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-muted">다음 곡</span>
+                <span className="block truncate font-bold">{next.title || '제목 없음'}</span>
+              </span>
+              <ChevronRight className="size-5 shrink-0 text-muted" />
+            </button>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

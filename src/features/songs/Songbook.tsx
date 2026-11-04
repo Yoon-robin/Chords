@@ -94,13 +94,19 @@ export function Songbook() {
   );
 
   if (open) {
+    const at = list.findIndex((s) => s.id === open.id);
     return (
       <>
+        {/* 곡마다 새로 그려서 곡별 설정·재생 상태가 섞이지 않게 */}
         <SongView
+          key={open.id}
           song={open}
           editable={isMine(open)}
           favorite={isFav(open)}
           onToggleFavorite={() => toggleFav(open.id)}
+          prev={at > 0 ? list[at - 1] : null}
+          next={at >= 0 ? (list[at + 1] ?? null) : null}
+          onOpen={setOpenId}
           onBack={() => setOpenId(null)}
           onEdit={() =>
             setEditing(
