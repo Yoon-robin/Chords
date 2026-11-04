@@ -195,6 +195,33 @@ export function SongView({
     if (r.top < 200 || r.bottom > window.innerHeight - 120) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [playingBar, scrolling]);
 
+  // 블루투스 페이지 넘기개·키보드: →/PageDown 다음 화면, ←/PageUp 이전 화면, 스페이스 자동 스크롤, P 반주
+  const keys = useRef({ togglePlay, playable });
+  keys.current = { togglePlay, playable };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="slider"]')) return;
+      // 한 화면씩 넘기되 위쪽에 고정된 코드 줄 아래로 앞 화면 끝이 조금 겹쳐 보이게
+      const page = window.innerHeight * 0.7;
+      if (e.key === 'PageDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        window.scrollBy({ top: page, behavior: 'smooth' });
+      } else if (e.key === 'PageUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        window.scrollBy({ top: -page, behavior: 'smooth' });
+      } else if (e.key === ' ' && !t.closest('button, a')) {
+        e.preventDefault();
+        setScrolling((v) => !v);
+      } else if (e.code === 'KeyP' && keys.current.playable) {
+        keys.current.togglePlay();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   const shiftSemis = (d: number) => setPref('semis', Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, semis + d)));
 
   return (
@@ -386,6 +413,9 @@ export function SongView({
             <span className="w-14 text-right text-sm font-bold tabular-nums">♩ {bpm}</span>
           </div>
         )}
+        <p className="hidden basis-full text-xs text-muted sm:block">
+          키보드·페이지 넘기개: ← → 넘기기 · 스페이스 자동 스크롤{playable ? ' · P 반주' : ''}
+        </p>
       </div>
 
       <article className="flex flex-col gap-1 pb-10" style={{ fontSize: TEXT_SIZES[textSize] ?? 16 }}>
