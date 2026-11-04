@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, SearchField } from '@heroui/react';
-import { History, ListMusic, Plus, Star, Undo2 } from 'lucide-react';
+import { ArrowUpDown, History, ListMusic, Plus, Star, Undo2 } from 'lucide-react';
 import { BUILTIN_SONGS } from '../../data/songs';
 import { usePersistent } from '../../lib/storage';
 import { newId, parseBody, songChords, type Song } from '../../lib/songs';
 import { pretty } from '../../lib/theory';
+import { resolveChord } from '../../components/ChordCard';
 import { SongView } from './SongView';
 import { SongEditor } from './SongEditor';
 import { BackupPanel } from './BackupPanel';
@@ -17,6 +18,23 @@ const FILTERS = [
   { id: 'easy', label: '입문' },
 ] as const;
 type Filter = (typeof FILTERS)[number]['id'];
+
+const SORTS = [
+  { id: 'default', label: '기본' },
+  { id: 'easy', label: '쉬운 곡부터' },
+  { id: 'title', label: '제목' },
+  { id: 'artist', label: '가수' },
+] as const;
+type Sort = (typeof SORTS)[number]['id'];
+
+// 쉬운 정도: 오픈 운지가 없는 코드(바레 등) 수, 같으면 코드 종류 수
+function difficulty(chords: string[]) {
+  const hard = chords.filter((c) => {
+    const r = resolveChord(c);
+    return r && r.voicing.position !== '오픈';
+  }).length;
+  return hard * 100 + chords.length;
+}
 
 export function Songbook() {
   const [mine, setMine] = usePersistent<Song[]>('songs.mine', []);
@@ -40,6 +58,7 @@ export function Songbook() {
   }, [openId]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [sort, setSort] = usePersistent<Sort>('songs.sort', 'default');
   const [editing, setEditing] = useState<Song | null>(null);
   // 지운 곡은 잠시 기억해 두었다가 "되돌리기"로 원래 자리에 복구한다
   const [deleted, setDeleted] = useState<{ song: Song; index: number } | null>(null);
@@ -59,12 +78,21 @@ export function Songbook() {
   };
 
   const all = useMemo(() => [...mine, ...BUILTIN_SONGS], [mine]);
+  // 곡마다 쓰인 코드는 목록 카드와 정렬에 같이 쓴다
+  const chordsOf = useMemo(() => new Map(all.map((s) => [s.id, songChords(parseBody(s.body))])), [all]);
+  const level = useMemo(() => new Map(all.map((s) => [s.id, difficulty(chordsOf.get(s.id)!)])), [all, chordsOf]);
   const open = all.find((s) => s.id === openId) ?? null;
 
   const isMine = (s: Song) => mine.some((m) => m.id === s.id);
   const recentSongs = recent.map((id) => all.find((s) => s.id === id)).filter((s): s is Song => !!s);
 
-  // 즐겨찾기한 곡을 맨 위로 (나머지는 원래 순서)
+  // 기본 정렬은 즐겨찾기한 곡을 맨 위로 (나머지는 원래 순서)
+  const compare = (a: Song, b: Song) => {
+    if (sort === 'title') return a.title.localeCompare(b.title, 'ko');
+    if (sort === 'artist') return a.artist.localeCompare(b.artist, 'ko') || a.title.localeCompare(b.title, 'ko');
+    if (sort === 'easy') return level.get(a.id)! - level.get(b.id)!;
+    return Number(isFav(b)) - Number(isFav(a));
+  };
   const list = all
     .filter((s) => {
       const q = query.trim().toLowerCase();
@@ -75,7 +103,7 @@ export function Songbook() {
       if (filter === 'easy') return s.tags?.includes('입문');
       return true;
     })
-    .sort((a, b) => Number(isFav(b)) - Number(isFav(a)));
+    .sort(compare);
 
   const saveSong = (song: Song) => {
     setMine((prev) => {
@@ -176,6 +204,24 @@ export function Songbook() {
         ))}
       </div>
 
+      <div role="radiogroup" aria-label="정렬" className="-mt-1 flex flex-wrap items-center gap-1.5">
+        <ArrowUpDown className="size-3.5 text-muted" aria-hidden />
+        {SORTS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={sort === o.id}
+            onClick={() => setSort(o.id)}
+            className={`rounded-lg px-2 py-1 text-xs font-bold whitespace-nowrap transition ${
+              sort === o.id ? 'bg-surface-tertiary text-foreground' : 'text-muted hover:text-foreground'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
       {recentSongs.length > 0 && !query.trim() && filter === 'all' && (
         <section aria-label="최근 연 곡">
           <h2 className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-muted">
@@ -214,7 +260,7 @@ export function Songbook() {
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {list.map((s) => {
-            const chords = songChords(parseBody(s.body));
+            const chords = chordsOf.get(s.id)!;
             return (
               <li key={s.id}>
                 <button
